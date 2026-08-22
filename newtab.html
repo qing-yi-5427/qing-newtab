@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f0c29">
+  <meta name="color-scheme" content="dark light">
+  <title>qing-newtab</title>
+  <link rel="stylesheet" href="newtab.css">
+  <!-- Local external script: MV3 blocks inline JavaScript on extension pages. -->
+  <script src="theme-init.js"></script>
+</head>
+<body>
+  <div id="wallpaper"></div>
+  <div id="overlay"></div>
+  <div id="scrim"></div>
+
+  <main id="content">
+    <section id="clock-section">
+      <div id="time">00:00</div>
+      <div id="date"></div>
+    </section>
+
+    <section id="input-row" aria-label="搜索与快速对话">
+    <section id="search-section">
+      <div class="search-heading"><span>搜索</span></div>
+      <form id="search-form" role="search">
+        <input type="text" id="search-input" placeholder="搜索或输入网址" autocomplete="off" spellcheck="false" aria-label="搜索或输入网址">
+        <div id="engine-wrap">
+          <button type="button" id="engine-switch" class="engine-switch" aria-haspopup="true" aria-expanded="false" aria-label="搜索引擎">B</button>
+          <div id="engine-menu" class="engine-menu hidden" role="menu" aria-label="选择搜索引擎">
+            <button type="button" class="engine-option active" role="menuitemradio" aria-checked="true" data-engine="bing">Bing</button>
+            <button type="button" class="engine-option" role="menuitemradio" aria-checked="false" data-engine="google">Google</button>
+            <button type="button" class="engine-option" role="menuitemradio" aria-checked="false" data-engine="custom">自定义</button>
+          </div>
+        </div>
+        <button type="submit" id="search-btn" aria-label="搜索">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </form>
+    </section>
+
+    <section id="assistant-section" aria-labelledby="assistant-title">
+      <div class="assistant-heading">
+        <span id="assistant-title">快速对话</span>
+        <div class="assistant-actions">
+          <button id="assistant-clear" class="text-action hidden" type="button">清空</button>
+          <a id="assistant-web" class="text-action hidden" target="_blank" rel="noopener noreferrer">打开网页版</a>
+        </div>
+      </div>
+      <div id="assistant-messages" class="assistant-messages hidden" aria-live="polite"></div>
+      <form id="assistant-form">
+        <textarea id="assistant-input" rows="1" maxlength="8000" placeholder="向大模型提问，回车发送" aria-label="向大模型提问"></textarea>
+        <button id="assistant-send" type="submit" aria-label="发送">发送</button>
+      </form>
+      <p id="assistant-status" class="assistant-status" role="status" aria-live="polite"></p>
+    </section>
+    </section>
+
+    <section id="home-dashboard">
+      <section id="shortcuts-section" class="home-section" aria-labelledby="shortcuts-title">
+        <div class="section-heading">
+          <h2 id="shortcuts-title">快捷方式</h2>
+        </div>
+        <div id="tab-shortcuts">
+          <div id="shortcuts-grid" title="右键空白处添加快捷方式"></div>
+        </div>
+      </section>
+
+      <section id="bookmarks-section" class="home-section" aria-labelledby="bookmarks-title">
+        <div class="section-heading">
+          <h2 id="bookmarks-title">书签</h2>
+          <span id="bookmarks-count"></span>
+        </div>
+        <div id="bookmarks-tree"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="context-menu" class="context-menu hidden" role="menu" aria-label="页面菜单">
+    <button id="context-edit-shortcut" class="hidden" type="button" role="menuitem">编辑快捷方式</button>
+    <button id="context-add-shortcut" type="button" role="menuitem">添加快捷方式</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="context-settings" type="button" role="menuitem">设置</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="context-export-backup" type="button" role="menuitem">导出配置备份</button>
+    <button id="context-import-backup" type="button" role="menuitem">导入配置备份</button>
+  </div>
+
+  <div id="page-toast" class="page-toast hidden" role="status" aria-live="polite"></div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal-content settings-modal">
+      <div class="settings-header">
+        <h3 id="settings-title">设置</h3>
+        <button id="settings-close" class="modal-close" aria-label="关闭设置">&times;</button>
+      </div>
+
+      <div class="prefs-section">
+        <h4 class="prefs-title">偏好设置</h4>
+
+        <div class="pref-row">
+          <span class="pref-label" id="pref-theme-label">主题</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="pref-theme-label">
+            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="system" role="radio" aria-checked="true">跟随系统</button>
+            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="light" role="radio" aria-checked="false">浅色</button>
+            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="dark" role="radio" aria-checked="false">深色</button>
+          </div>
+        </div>
+
+        <div class="pref-row">
+          <label class="pref-label" for="wallpaper-source">背景壁纸</label>
+          <select id="wallpaper-source" class="pref-select">
+            <option value="bing">必应每日壁纸</option>
+            <option value="custom">自定义壁纸</option>
+            <option value="gradient">纯色渐变</option>
+          </select>
+        </div>
+
+        <div class="pref-row" id="custom-wallpaper-row">
+          <span class="pref-label">自定义图片</span>
+          <div class="inline-actions">
+            <button id="custom-wallpaper-choose" class="secondary-btn" type="button">选择图片</button>
+            <button id="custom-wallpaper-clear" class="secondary-btn" type="button">移除</button>
+            <input id="custom-wallpaper-file" type="file" accept="image/*" hidden>
+          </div>
+        </div>
+
+        <label class="pref-row range-row" for="wallpaper-blur">
+          <span class="pref-label">背景模糊 <output id="wallpaper-blur-value">0</output></span>
+          <input id="wallpaper-blur" type="range" min="0" max="20" step="1">
+        </label>
+
+        <label class="pref-row range-row" for="wallpaper-dim">
+          <span class="pref-label">背景变暗 <output id="wallpaper-dim-value">45%</output></span>
+          <input id="wallpaper-dim" type="range" min="0" max="75" step="1">
+        </label>
+
+        <label class="pref-row range-row" for="glass-blur">
+          <span class="pref-label">面板毛玻璃 <output id="glass-blur-value">10</output></span>
+          <input id="glass-blur" type="range" min="0" max="30" step="1">
+        </label>
+
+        <div class="pref-row">
+          <label class="pref-label" id="pref-engine-label" for="engine-select">搜索引擎</label>
+          <select id="engine-select" class="pref-select" aria-labelledby="pref-engine-label">
+            <option value="bing">Bing</option>
+            <option value="google">Google</option>
+            <option value="custom">自定义</option>
+          </select>
+        </div>
+
+        <div class="pref-row" id="custom-engine-row">
+          <label class="pref-label" for="custom-engine-input">自定义搜索地址</label>
+          <input type="text" id="custom-engine-input" class="pref-input" placeholder="https://example.com/search?q=%s" aria-label="自定义搜索地址">
+        </div>
+
+        <div class="pref-row">
+          <span class="pref-label" id="pref-icon-label">快捷方式图标</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="pref-icon-label">
+            <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="letter" role="radio" aria-checked="false">首字母</button>
+            <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="favicon" role="radio" aria-checked="true">网站图标</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="prefs-section">
+        <h4 class="prefs-title">快速对话</h4>
+        <label class="settings-field">
+          <span>发送到</span>
+          <select id="llm-provider" class="pref-select">
+            <option value="deepseek">DeepSeek 网页（自动发送）</option>
+            <option value="kimi">Kimi 网页（自动发送）</option>
+            <option value="mimo">MiMo 网页（自动发送）</option>
+            <option value="glm">智谱清言网页（自动发送）</option>
+            <option value="api">自定义接口</option>
+          </select>
+        </label>
+        <div id="llm-api-settings" class="settings-fields hidden">
+          <label class="settings-field">
+            <span>接口地址</span>
+            <input id="llm-base-url" class="pref-input" type="url" placeholder="https://api.example.com/v1">
+          </label>
+          <label class="settings-field">
+            <span>密钥</span>
+            <input id="llm-api-key" class="pref-input" type="password" autocomplete="off" placeholder="仅保存在本机">
+          </label>
+          <label class="settings-field">
+            <span>模型</span>
+            <input id="llm-model" class="pref-input" type="text" placeholder="例如 gpt-4o-mini">
+          </label>
+          <label class="settings-field">
+            <span>备用网页地址（可选）</span>
+            <input id="llm-web-url" class="pref-input" type="url" placeholder="https://example.com/">
+          </label>
+          <p class="settings-note">支持兼容 OpenAI 对话接口的服务。密钥仅保存在浏览器本地。</p>
+        </div>
+        <p id="llm-web-note" class="settings-note">发送时会打开所选网站，并自动提交输入内容；需要先在该网站登录。</p>
+      </div>
+
+      <div class="prefs-section">
+        <h4 class="prefs-title">数据</h4>
+        <div class="data-actions">
+          <button id="settings-export" class="secondary-btn" type="button">导出设置</button>
+          <button id="settings-import" class="secondary-btn" type="button">导入设置</button>
+          <button id="settings-clear-cache" class="secondary-btn" type="button">清理缓存</button>
+          <input id="settings-import-file" type="file" hidden>
+        </div>
+        <p id="data-status" class="data-status" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="settings-done" type="button">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shortcut-editor-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="shortcut-editor-title">
+    <form id="shortcut-editor-form" class="modal-content shortcut-editor-modal">
+      <div class="settings-header">
+        <h3 id="shortcut-editor-title">添加快捷方式</h3>
+        <button id="shortcut-editor-close" class="modal-close" type="button" aria-label="关闭编辑窗口">&times;</button>
+      </div>
+
+      <button id="shortcut-editor-icon" class="shortcut-editor-icon" type="button" title="选择自定义图标">
+        <span id="shortcut-editor-icon-preview" aria-hidden="true"></span>
+        <span class="shortcut-editor-icon-hint">更换图标</span>
+      </button>
+      <button id="shortcut-editor-icon-reset" class="text-button hidden" type="button">恢复网站图标</button>
+
+      <label class="editor-field">
+        <span>名称</span>
+        <input id="shortcut-editor-name" type="text" maxlength="64" autocomplete="off" required placeholder="例如：视频网站">
+      </label>
+      <label class="editor-field">
+        <span>网址</span>
+        <input id="shortcut-editor-url" type="text" inputmode="url" autocomplete="off" required placeholder="https://example.com">
+      </label>
+
+      <div class="modal-actions shortcut-editor-actions">
+        <button id="shortcut-editor-delete" class="danger-btn hidden" type="button">删除</button>
+        <span class="action-spacer"></span>
+        <button id="shortcut-editor-cancel" type="button">取消</button>
+        <button id="shortcut-editor-save" type="submit">保存</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Icon preview modal (replaces the old canvas crop modal) -->
+  <div id="icon-preview-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="icon-preview-title">
+    <div class="modal-content icon-preview-modal">
+      <h3 id="icon-preview-title">图标预览</h3>
+      <div class="icon-preview-box">
+        <img id="icon-preview-img" alt="图标预览">
+      </div>
+      <div class="modal-actions">
+        <button id="icon-preview-cancel" type="button">取消</button>
+        <button id="icon-preview-save" type="button">应用</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="newtab.js"></script>
+</body>
+</html>

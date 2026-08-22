@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "qing-newtab",
+  "version": "1.4.1",
+  "description": "简洁的新标签页，包含时间、搜索、快速对话、快捷方式、书签和可调壁纸。",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128-small.png"
+  },
+  "permissions": [
+    "bookmarks",
+    "favicon",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.bing.com/*",
+    "https://chat.deepseek.com/*",
+    "https://www.kimi.com/*",
+    "https://kimi.com/*",
+    "https://kimi.moonshot.cn/*",
+    "https://aistudio.xiaomimimo.com/*",
+    "https://chatglm.cn/*",
+    "https://*.chatglm.cn/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.deepseek.com/*",
+        "https://www.kimi.com/*",
+        "https://kimi.com/*",
+        "https://kimi.moonshot.cn/*",
+        "https://aistudio.xiaomimimo.com/*",
+        "https://chatglm.cn/*",
+        "https://*.chatglm.cn/*"
+      ],
+      "js": ["web-chat-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}

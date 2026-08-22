@@ -1,0 +1,16 @@
+{
+  "name": "qing-newtab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "简洁、轻量的 Edge 新标签页扩展。",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run test && npm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5",
+    "jsdom": "^29.1.1"
+  }
+}
