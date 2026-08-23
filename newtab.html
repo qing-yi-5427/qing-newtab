@@ -138,7 +138,7 @@
         </label>
 
         <label class="pref-row range-row" for="glass-blur">
-          <span class="pref-label">面板毛玻璃 <output id="glass-blur-value">10</output></span>
+          <span class="pref-label">面板清晰度 <output id="glass-blur-value">10</output></span>
           <input id="glass-blur" type="range" min="0" max="30" step="1">
         </label>
 
@@ -161,6 +161,37 @@
           <div class="segmented" role="radiogroup" aria-labelledby="pref-icon-label">
             <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="letter" role="radio" aria-checked="false">首字母</button>
             <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="favicon" role="radio" aria-checked="true">网站图标</button>
+          </div>
+        </div>
+
+        <div class="pref-row">
+          <span class="pref-label">快捷方式布局</span>
+          <div class="shortcut-layout-controls">
+            <label>列数
+              <select id="shortcut-columns" class="pref-select compact-select" aria-label="快捷方式列数">
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12" selected>12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+                <option value="15">15</option>
+                <option value="16">16</option>
+              </select>
+            </label>
+            <label>行数
+              <select id="shortcut-rows" class="pref-select compact-select" aria-label="快捷方式行数">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
           </div>
         </div>
       </div>

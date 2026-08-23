@@ -25,10 +25,14 @@ function validImageUrl(value) {
 function applyEffects(settings) {
   const blur = Math.max(0, Math.min(20, Number(settings.wallpaperBlur) || 0));
   const dim = Math.max(0, Math.min(75, Number(settings.wallpaperDim) || 0));
-  const glass = Math.max(0, Math.min(30, Number(settings.glassBlur) || 0));
-  wallpaperEl.style.filter = `blur(${blur}px) scale(${1 + blur / 300})`;
-  overlayEl.style.background = `rgba(0, 0, 0, ${dim / 100})`;
-  document.documentElement.style.setProperty('--glass-blur', `${glass}px`);
+  const panelStrength = Math.max(0, Math.min(30, Number(settings.glassBlur) || 0));
+  wallpaperEl.style.filter = blur > 0
+    ? `blur(${blur}px) scale(${1 + blur / 300})`
+    : 'none';
+  // CSS chooses a dark or light overlay from the active theme. Keeping only
+  // the opacity here avoids darkening a light theme underneath dark text.
+  document.documentElement.style.setProperty('--wallpaper-dim', String(dim / 100));
+  document.documentElement.style.setProperty('--panel-strength', String(panelStrength / 100));
 }
 
 function setWallpaper(url, fade = false) {

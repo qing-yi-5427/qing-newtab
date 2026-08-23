@@ -289,6 +289,8 @@ test('DEFAULT_SETTINGS matches the locked decisions', () => {
   assert.equal(DEFAULT_SETTINGS.iconMode, 'favicon');
   assert.equal(DEFAULT_SETTINGS.wallpaperSource, 'bing');
   assert.equal(DEFAULT_SETTINGS.wallpaperDim, 45);
+  assert.equal(DEFAULT_SETTINGS.shortcutColumns, 12);
+  assert.equal(DEFAULT_SETTINGS.shortcutRows, 2);
   assert.equal(DEFAULT_SETTINGS.llmApiKey, '');
   assert.equal(DEFAULT_SETTINGS.llmProvider, 'deepseek');
 });

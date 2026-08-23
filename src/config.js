@@ -42,6 +42,8 @@ export const DEFAULT_SETTINGS = {
   wallpaperBlur: 0,
   wallpaperDim: 45,
   glassBlur: 10,
+  shortcutColumns: 12,
+  shortcutRows: 2,
   searchEngine: 'bing',
   customEngineUrl: 'https://www.google.com/search?q=%s',
   iconMode: 'favicon',

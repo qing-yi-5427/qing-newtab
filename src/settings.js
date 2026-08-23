@@ -109,6 +109,8 @@ export function initSettings() {
   const wallpaperBlur = document.getElementById('wallpaper-blur');
   const wallpaperDim = document.getElementById('wallpaper-dim');
   const glassBlur = document.getElementById('glass-blur');
+  const shortcutColumns = document.getElementById('shortcut-columns');
+  const shortcutRows = document.getElementById('shortcut-rows');
   const engSel = document.getElementById('engine-select');
   const customRow = document.getElementById('custom-engine-row');
   const customInput = document.getElementById('custom-engine-input');
@@ -229,6 +231,13 @@ export function initSettings() {
     });
   });
 
+  shortcutColumns.addEventListener('change', () => {
+    savePreference({ shortcutColumns: Number(shortcutColumns.value) });
+  });
+  shortcutRows.addEventListener('change', () => {
+    savePreference({ shortcutRows: Number(shortcutRows.value) });
+  });
+
   // Search engine select.
   engSel.addEventListener('change', async () => {
     const s = await storage.getSettings();
@@ -330,6 +339,12 @@ export function initSettings() {
         wallpaperBlur: numberInRange(incoming.wallpaperBlur, 0, 20, current.wallpaperBlur),
         wallpaperDim: numberInRange(incoming.wallpaperDim, 0, 75, current.wallpaperDim),
         glassBlur: numberInRange(incoming.glassBlur, 0, 30, current.glassBlur),
+        shortcutColumns: Math.round(numberInRange(
+          incoming.shortcutColumns, 4, 16, current.shortcutColumns
+        )),
+        shortcutRows: Math.round(numberInRange(
+          incoming.shortcutRows, 1, 4, current.shortcutRows
+        )),
         searchEngine: Object.hasOwn(SEARCH_ENGINES, incoming.searchEngine)
           ? incoming.searchEngine
           : current.searchEngine,
@@ -409,6 +424,8 @@ export function initSettings() {
     wallpaperBlur.value = String(s.wallpaperBlur);
     wallpaperDim.value = String(s.wallpaperDim);
     glassBlur.value = String(s.glassBlur);
+    shortcutColumns.value = String(s.shortcutColumns);
+    shortcutRows.value = String(s.shortcutRows);
     document.getElementById('wallpaper-blur-value').textContent = String(s.wallpaperBlur);
     document.getElementById('wallpaper-dim-value').textContent = `${s.wallpaperDim}%`;
     document.getElementById('glass-blur-value').textContent = String(s.glassBlur);

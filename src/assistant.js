@@ -72,13 +72,13 @@ export function initAssistant() {
     const settings = await storage.getSettings();
     if (settings.llmProvider !== 'api') {
       const provider = webChatProvider(settings.llmProvider);
-      title.textContent = `快速对话 · ${provider.label}`;
+      title.textContent = provider.label;
       webLink.href = provider.url;
       webLink.textContent = `打开 ${provider.label}`;
       webLink.classList.remove('hidden');
       return;
     }
-    title.textContent = '快速对话 · 自定义接口';
+    title.textContent = '自定义接口';
     try {
       const url = new URL(settings.llmWebUrl || '');
       const valid = ['http:', 'https:'].includes(url.protocol);

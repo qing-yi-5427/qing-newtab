@@ -21,7 +21,7 @@ export async function refreshEngineUI() {
   const menu = document.getElementById(MENU_ID);
   const eng = SEARCH_ENGINES[settings.searchEngine] || SEARCH_ENGINES.bing;
   if (btn) {
-    btn.textContent = eng.letter;
+    btn.textContent = eng.label;
     btn.setAttribute('aria-label', `搜索引擎：${eng.label}`);
   }
   if (menu) {

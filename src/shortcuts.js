@@ -29,6 +29,14 @@ let editorDraft = null;
 let firstRender = true;
 let wheelDelta = 0;
 let wheelTimer = null;
+let layoutRows = 2;
+let layoutColumns = 12;
+let layoutFrame = 0;
+
+function integerInRange(value, min, max, fallback) {
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
 
 function shortcutColumnWidth() {
   const styles = typeof getComputedStyle === 'function'
@@ -46,7 +54,7 @@ function syncShortcutOverflow() {
     const overflowing = panel.scrollWidth > panel.clientWidth + 2;
     panel.classList.toggle('has-overflow', overflowing);
     panel.title = overflowing
-      ? '两行显示，滚动查看更多快捷方式'
+      ? `${layoutRows} 行显示，横向滚动查看更多快捷方式`
       : '右键空白处添加快捷方式';
     return;
   }
@@ -57,23 +65,69 @@ function syncShortcutOverflow() {
   const horizontalPadding = (Number.parseFloat(panelStyles.paddingLeft) || 0)
     + (Number.parseFloat(panelStyles.paddingRight) || 0);
   const contentWidth = Math.max(cell, panel.clientWidth - horizontalPadding);
-  const columns = Math.max(1, Math.ceil(gridEl.childElementCount / 2));
+  const columns = Math.max(1, Math.ceil(gridEl.childElementCount / layoutRows));
   const minimumGap = Math.min(gap, 8);
-  const visibleColumns = Math.max(1, Math.floor((contentWidth + minimumGap) / (cell + minimumGap)));
+  const physicallyVisible = Math.max(
+    1,
+    Math.floor((contentWidth + minimumGap) / (cell + minimumGap))
+  );
+  const visibleColumns = Math.max(1, Math.min(layoutColumns, physicallyVisible));
   const overflowing = columns > visibleColumns;
 
-  if (overflowing && visibleColumns > 1) {
-    const fittedGap = Math.max(0, (contentWidth - visibleColumns * cell) / (visibleColumns - 1));
-    gridEl.style.setProperty('--shortcut-column-gap', `${fittedGap}px`);
+  if (overflowing) {
+    const trackWidth = Math.max(
+      cell,
+      (contentWidth - minimumGap * Math.max(0, visibleColumns - 1)) / visibleColumns
+    );
+    const gridWidth = columns * trackWidth + Math.max(0, columns - 1) * minimumGap;
+    gridEl.style.gridTemplateColumns = `repeat(${columns}, ${trackWidth}px)`;
+    gridEl.style.width = `${gridWidth}px`;
+    gridEl.style.minWidth = `${gridWidth}px`;
+    gridEl.style.setProperty('--shortcut-column-gap', `${minimumGap}px`);
   } else {
+    gridEl.style.gridTemplateColumns = `repeat(${columns}, minmax(${cell}px, 1fr))`;
+    gridEl.style.width = '100%';
+    gridEl.style.minWidth = '100%';
     gridEl.style.removeProperty('--shortcut-column-gap');
   }
   const startedOverflowing = overflowing && !panel.classList.contains('has-overflow');
   panel.classList.toggle('has-overflow', overflowing);
   if (startedOverflowing) panel.scrollLeft = 0;
   panel.title = overflowing
-    ? '两行显示，滚动查看更多快捷方式'
+    ? `${layoutRows} 行显示，横向滚动查看更多快捷方式`
     : '右键空白处添加快捷方式';
+}
+
+function scheduleShortcutOverflow() {
+  if (typeof requestAnimationFrame !== 'function') {
+    clearTimeout(layoutFrame);
+    layoutFrame = setTimeout(syncShortcutOverflow, 0);
+    return;
+  }
+  if (layoutFrame) cancelAnimationFrame(layoutFrame);
+  layoutFrame = requestAnimationFrame(() => {
+    layoutFrame = 0;
+    syncShortcutOverflow();
+  });
+}
+
+function applyShortcutLayout(settings, resetScroll = false) {
+  if (!gridEl) return;
+  layoutRows = integerInRange(settings.shortcutRows, 1, 4, 2);
+  layoutColumns = integerInRange(settings.shortcutColumns, 4, 16, 12);
+  const rowGap = 13;
+  const rowHeight = 82;
+  gridEl.style.setProperty('--shortcut-rows', String(layoutRows));
+  gridEl.style.setProperty(
+    '--shortcut-grid-height',
+    `${layoutRows * rowHeight + Math.max(0, layoutRows - 1) * rowGap}px`
+  );
+  gridEl.style.setProperty(
+    '--shortcut-cols',
+    String(Math.max(1, Math.ceil(gridEl.childElementCount / layoutRows)))
+  );
+  if (resetScroll) gridEl.parentElement.scrollLeft = 0;
+  scheduleShortcutOverflow();
 }
 
 /** Normalize a shortcut destination and reject executable/non-web schemes. */
@@ -193,12 +247,7 @@ export async function renderShortcuts() {
   });
 
   gridEl.classList.toggle('empty', gridEl.childElementCount === 0);
-  gridEl.style.setProperty(
-    '--shortcut-cols',
-    String(Math.max(1, Math.ceil(gridEl.childElementCount / 2)))
-  );
-  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(syncShortcutOverflow);
-  else setTimeout(syncShortcutOverflow, 0);
+  applyShortcutLayout(settings);
   firstRender = false;
 }
 
@@ -430,12 +479,17 @@ export function initShortcuts() {
       wheelDelta = 0;
     }, 60);
   }, { passive: false });
-  window.addEventListener('resize', syncShortcutOverflow);
+  window.addEventListener('resize', scheduleShortcutOverflow, { passive: true });
   renderShortcuts();
 
-  state.subscribe((changedKeys) => {
-    if ((!changedKeys || changedKeys.includes('iconMode')) && iconPreviewModal.classList.contains('hidden')) {
+  state.subscribe(async (changedKeys) => {
+    if (!iconPreviewModal.classList.contains('hidden')) return;
+    if (!changedKeys || changedKeys.includes('iconMode')) {
       renderShortcuts();
+      return;
+    }
+    if (changedKeys.some((key) => ['shortcutRows', 'shortcutColumns'].includes(key))) {
+      applyShortcutLayout(await storage.getSettings(), true);
     }
   });
 }
