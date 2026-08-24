@@ -67,9 +67,22 @@ export function initAssistant() {
   const clearButton = document.getElementById('assistant-clear');
   const webLink = document.getElementById('assistant-web');
   const title = document.getElementById('assistant-title');
+  const providerSwitch = document.getElementById('assistant-provider-switch');
+  const providerMenu = document.getElementById('assistant-provider-menu');
+
+  function closeProviderMenu({ restoreFocus = false } = {}) {
+    providerMenu.classList.add('hidden');
+    providerSwitch.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) providerSwitch.focus();
+  }
 
   async function syncWebLink() {
     const settings = await storage.getSettings();
+    providerMenu.querySelectorAll('.assistant-provider-option').forEach((option) => {
+      const active = option.dataset.provider === settings.llmProvider;
+      option.classList.toggle('active', active);
+      option.setAttribute('aria-checked', active ? 'true' : 'false');
+    });
     if (settings.llmProvider !== 'api') {
       const provider = webChatProvider(settings.llmProvider);
       title.textContent = provider.label;
@@ -88,6 +101,44 @@ export function initAssistant() {
       webLink.classList.add('hidden');
     }
   }
+
+  providerSwitch.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = providerMenu.classList.toggle('hidden') === false;
+    providerSwitch.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  providerMenu.querySelectorAll('.assistant-provider-option').forEach((option) => {
+    option.addEventListener('click', async () => {
+      const settings = await storage.getSettings();
+      settings.llmProvider = option.dataset.provider;
+      await storage.saveSettings(settings);
+      closeProviderMenu();
+      state.notifySettingsChanged(['llmProvider']);
+      input.focus();
+    });
+  });
+  providerMenu.addEventListener('keydown', (event) => {
+    const options = Array.from(providerMenu.querySelectorAll('.assistant-provider-option'));
+    const current = options.indexOf(document.activeElement);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      options[(current + direction + options.length) % options.length]?.focus();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeProviderMenu({ restoreFocus: true });
+    }
+  });
+  providerSwitch.addEventListener('keydown', (event) => {
+    if (!['Enter', ' ', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    providerMenu.classList.remove('hidden');
+    providerSwitch.setAttribute('aria-expanded', 'true');
+    providerMenu.querySelector('.assistant-provider-option')?.focus();
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('#assistant-provider-wrap')) closeProviderMenu();
+  });
 
   async function submit() {
     if (sending) return;

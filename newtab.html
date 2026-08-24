@@ -25,7 +25,7 @@
     <section id="search-section">
       <div class="search-heading"><span>搜索</span></div>
       <form id="search-form" role="search">
-        <input type="text" id="search-input" placeholder="搜索或输入网址" autocomplete="off" spellcheck="false" aria-label="搜索或输入网址">
+        <input type="text" id="search-input" placeholder="搜索网站、书签或输入网址" autocomplete="off" spellcheck="false" aria-label="搜索网站、书签或输入网址" aria-controls="local-search-results" aria-expanded="false" aria-keyshortcuts="Control+F Meta+F Control+K Meta+K /">
         <div id="engine-wrap">
           <button type="button" id="engine-switch" class="engine-switch" aria-haspopup="true" aria-expanded="false" aria-label="搜索引擎">B</button>
           <div id="engine-menu" class="engine-menu hidden" role="menu" aria-label="选择搜索引擎">
@@ -38,11 +38,23 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
       </form>
+      <div id="local-search-results" class="local-search-results hidden" role="listbox" aria-label="本地搜索结果"></div>
     </section>
 
     <section id="assistant-section" aria-labelledby="assistant-title">
       <div class="assistant-heading">
-        <span id="assistant-title">快速对话</span>
+        <div id="assistant-provider-wrap" class="assistant-provider-wrap">
+          <button id="assistant-provider-switch" class="assistant-provider-switch" type="button" aria-haspopup="true" aria-expanded="false" aria-label="对话供应商">
+            <span id="assistant-title">DeepSeek</span>
+          </button>
+          <div id="assistant-provider-menu" class="engine-menu assistant-provider-menu hidden" role="menu" aria-label="选择对话供应商">
+            <button type="button" class="engine-option assistant-provider-option" role="menuitemradio" aria-checked="true" data-provider="deepseek">DeepSeek</button>
+            <button type="button" class="engine-option assistant-provider-option" role="menuitemradio" aria-checked="false" data-provider="kimi">Kimi</button>
+            <button type="button" class="engine-option assistant-provider-option" role="menuitemradio" aria-checked="false" data-provider="mimo">MiMo</button>
+            <button type="button" class="engine-option assistant-provider-option" role="menuitemradio" aria-checked="false" data-provider="glm">智谱清言</button>
+            <button type="button" class="engine-option assistant-provider-option" role="menuitemradio" aria-checked="false" data-provider="api">自定义接口</button>
+          </div>
+        </div>
         <div class="assistant-actions">
           <button id="assistant-clear" class="text-action hidden" type="button">清空</button>
           <a id="assistant-web" class="text-action hidden" target="_blank" rel="noopener noreferrer">打开网页版</a>
@@ -78,8 +90,20 @@
   </main>
 
   <div id="context-menu" class="context-menu hidden" role="menu" aria-label="页面菜单">
+    <button id="context-open-bookmark" class="hidden" type="button" role="menuitem">在新标签页打开</button>
+    <button id="context-edit-bookmark" class="hidden" type="button" role="menuitem">编辑书签</button>
+    <button id="context-rename-bookmark-folder" class="hidden" type="button" role="menuitem">重命名文件夹</button>
+    <button id="context-delete-bookmark" class="hidden danger-menu-item" type="button" role="menuitem">删除书签</button>
+    <div id="context-bookmark-separator" class="context-menu-separator hidden" role="separator"></div>
     <button id="context-edit-shortcut" class="hidden" type="button" role="menuitem">编辑快捷方式</button>
     <button id="context-add-shortcut" type="button" role="menuitem">添加快捷方式</button>
+    <button id="context-finish-managing" class="hidden" type="button" role="menuitem">完成整理</button>
+    <button id="context-undo-shortcut" type="button" role="menuitem">撤销快捷方式变更</button>
+    <div class="context-menu-separator" role="separator"></div>
+    <button id="context-history" type="button" role="menuitem">历史记录</button>
+    <button id="context-downloads" type="button" role="menuitem">下载内容</button>
+    <button id="context-favorites" type="button" role="menuitem">书签管理</button>
+    <button id="context-extensions" type="button" role="menuitem">扩展管理</button>
     <div class="context-menu-separator" role="separator"></div>
     <button id="context-settings" type="button" role="menuitem">设置</button>
     <div class="context-menu-separator" role="separator"></div>
@@ -88,6 +112,27 @@
   </div>
 
   <div id="page-toast" class="page-toast hidden" role="status" aria-live="polite"></div>
+
+  <div id="bookmark-editor-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="bookmark-editor-title">
+    <form id="bookmark-editor-form" class="modal-content bookmark-editor-modal">
+      <div class="settings-header">
+        <h3 id="bookmark-editor-title">编辑书签</h3>
+        <button id="bookmark-editor-close" class="modal-close" type="button" aria-label="关闭书签编辑窗口">&times;</button>
+      </div>
+      <label class="editor-field">
+        <span>名称</span>
+        <input id="bookmark-editor-name" type="text" maxlength="255" autocomplete="off" required>
+      </label>
+      <label id="bookmark-editor-url-row" class="editor-field">
+        <span>网址</span>
+        <input id="bookmark-editor-url" type="text" inputmode="url" autocomplete="off" required>
+      </label>
+      <div class="modal-actions">
+        <button id="bookmark-editor-cancel" type="button">取消</button>
+        <button id="bookmark-editor-save" type="submit">保存</button>
+      </div>
+    </form>
+  </div>
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -194,6 +239,31 @@
             </label>
           </div>
         </div>
+
+        <div class="pref-row">
+          <span class="pref-label">首页显示</span>
+          <div class="pref-checks">
+            <label><input id="show-clock" type="checkbox" checked> 时间</label>
+            <label><input id="show-assistant" type="checkbox" checked> 快速对话</label>
+            <label><input id="show-bookmarks" type="checkbox" checked> 书签</label>
+          </div>
+        </div>
+
+        <div class="pref-row">
+          <label class="pref-label" for="home-order">内容顺序</label>
+          <select id="home-order" class="pref-select">
+            <option value="shortcuts-first">快捷方式在前</option>
+            <option value="bookmarks-first">书签在前</option>
+          </select>
+        </div>
+
+        <div class="pref-row">
+          <label class="pref-label" for="content-density">显示密度</label>
+          <select id="content-density" class="pref-select">
+            <option value="standard">标准</option>
+            <option value="compact">紧凑</option>
+          </select>
+        </div>
       </div>
 
       <div class="prefs-section">
@@ -233,17 +303,34 @@
       <div class="prefs-section">
         <h4 class="prefs-title">数据</h4>
         <div class="data-actions">
+          <button id="settings-sync" class="secondary-btn" type="button" aria-pressed="false">开启浏览器同步</button>
+          <button id="settings-restore-snapshot" class="secondary-btn" type="button">恢复上一次变更</button>
           <button id="settings-export" class="secondary-btn" type="button">导出设置</button>
           <button id="settings-import" class="secondary-btn" type="button">导入设置</button>
           <button id="settings-clear-cache" class="secondary-btn" type="button">清理缓存</button>
           <input id="settings-import-file" type="file" hidden>
         </div>
+        <p class="settings-note">同步只包含普通设置和快捷方式；密钥、壁纸和本地图标图片不会同步。快捷方式中的内网网址会随配置同步。</p>
         <p id="data-status" class="data-status" role="status" aria-live="polite"></p>
       </div>
 
       <div class="modal-actions">
         <button id="settings-done" type="button">完成</button>
       </div>
+    </div>
+  </div>
+
+  <div id="shortcut-folder-modal" class="modal shortcut-folder-modal hidden" role="dialog" aria-modal="true" aria-label="快捷方式文件夹">
+    <div id="shortcut-folder-window" class="modal-content shortcut-folder-window">
+      <div class="shortcut-folder-header">
+        <input id="shortcut-folder-name" type="text" maxlength="32" aria-label="文件夹名称">
+        <div class="shortcut-folder-actions">
+          <button id="shortcut-folder-add" type="button">添加</button>
+          <button id="shortcut-folder-close" class="modal-close" type="button" aria-label="关闭文件夹">&times;</button>
+        </div>
+      </div>
+      <p class="shortcut-folder-hint">拖动图标排序；拖到窗口外移回首页</p>
+      <div id="shortcut-folder-grid" aria-label="文件夹内容"></div>
     </div>
   </div>
 

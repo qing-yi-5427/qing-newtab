@@ -12,6 +12,23 @@
  */
 
 import { LETTER_PALETTE } from './config.js';
+import * as storage from './storage.js';
+
+// Some sites publish only a 16 px favicon even though an official high-
+// resolution application icon exists. Keep these narrow overrides explicit;
+// the generic fallback chain remains responsible for every other site.
+const HIGH_RES_ICON_OVERRIDES = new Map([
+  ['miyoushe.com', 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a7/e3/e9/a7e3e9df-0f89-5369-ab35-0017a9025bd9/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/256x256bb.jpg'],
+  ['bbs.mihoyo.com', 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/a7/e3/e9/a7e3e9df-0f89-5369-ab35-0017a9025bd9/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/256x256bb.jpg'],
+  ['jd.com', 'https://files.codelife.cc/icons/jd.svg'],
+  ['email.163.com', 'https://files.codelife.cc/icons/eb58486c2f648735.png'],
+  ['mail.163.com', 'https://files.codelife.cc/icons/eb58486c2f648735.png'],
+  ['pan.baidu.com', 'https://files.codelife.cc/icons/pan-baidu.svg'],
+  ['twitter.com', 'https://files.codelife.cc/icons/x.com.svg'],
+  ['x.com', 'https://files.codelife.cc/icons/x.com.svg'],
+  ['2dfan.com', 'https://files.codelife.cc/icons/5a3cc7bb7abcde1715cb29bf.png'],
+  ['bbs.mikocon.com', 'https://files.codelife.cc/website/user_e36N5keRReUD-q1AQiWcT.png'],
+]);
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => (
@@ -69,9 +86,9 @@ function browserFaviconUrl(pageUrl) {
 
 function siteIconCandidates(origin) {
   return [
-    `${origin}/apple-touch-icon.png`,
-    `${origin}/favicon-192x192.png`,
     `${origin}/favicon.svg`,
+    `${origin}/favicon-192x192.png`,
+    `${origin}/apple-touch-icon.png`,
     `${origin}/favicon-96x96.png`,
     `${origin}/favicon.png`,
     `${origin}/favicon.ico`,
@@ -121,7 +138,15 @@ export function faviconCandidates(url) {
       return [...candidates, ...siteIconCandidates(parsed.origin)];
     }
 
+    const highResolutionOverride = HIGH_RES_ICON_OVERRIDES.get(host);
+    if (highResolutionOverride) candidates.push(highResolutionOverride);
+
+    // Ask for the largest available official asset first. The browser keeps
+    // the response bytes in its HTTP cache; extension storage only remembers
+    // which URL succeeded, so raster icons are never re-scaled or re-encoded.
     candidates.push(
+      `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsed.origin)}&sz=256`,
+      `https://icon.horse/icon/${encodeURIComponent(host)}`,
       `https://favicon.im/${encodeURIComponent(host)}?larger=true&throw-error-on-404=true`,
       ...siteIconCandidates(parsed.origin),
     );
@@ -134,14 +159,95 @@ export function faviconCandidates(url) {
         ...siteIconCandidates(parentOrigin),
       );
     }
-
-    candidates.push(
-      `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsed.origin)}&sz=128`,
-    );
+    // Edge's public-site favicon endpoint may report a 128 px canvas while
+    // merely enlarging a 16 px icon. Do not accept that pseudo-HD fallback;
+    // a crisp letter is preferable when no real high-resolution source exists.
     return [...new Set(candidates)];
   } catch {
     return [];
   }
+}
+
+function persistLoadedIcon(host, source) {
+  void storage.setCachedFavicon(host, source).catch(() => {});
+}
+
+/** Load a website icon, preferring the source that succeeded on a previous tab. */
+export function renderWebsiteIcon(container, {
+  url,
+  label,
+  iconMode = 'favicon',
+  cachedUrl = null,
+  size = 40,
+  minimumSourceSize = 64,
+  loading = 'eager',
+} = {}) {
+  const host = hostFromUrl(url);
+  const renderToken = {};
+  container.iconRenderToken = renderToken;
+
+  const showLetter = () => {
+    container.innerHTML = letterAvatarSVG(label || host || '?', size);
+  };
+  if (iconMode !== 'favicon' || !host) {
+    showLetter();
+    return;
+  }
+
+  const candidates = faviconCandidates(url).filter((candidate) => candidate !== cachedUrl);
+  let candidateIndex = -1;
+  const loadSource = (source, fromCache = false) => {
+    const nextImage = document.createElement('img');
+    nextImage.className = 'site-icon';
+    nextImage.alt = label || '网站图标';
+    nextImage.referrerPolicy = 'no-referrer';
+    nextImage.loading = loading;
+    nextImage.decoding = fromCache ? 'sync' : 'async';
+    nextImage.onerror = () => {
+      if (fromCache) {
+        void storage.removeCachedFavicon(host).catch(() => {});
+        showLetter();
+      }
+      tryNext();
+    };
+    nextImage.onload = () => {
+      if (nextImage.naturalWidth < minimumSourceSize || nextImage.naturalHeight < minimumSourceSize) {
+        if (fromCache) {
+          void storage.removeCachedFavicon(host).catch(() => {});
+          showLetter();
+        }
+        tryNext();
+        return;
+      }
+      if (container.iconRenderToken === renderToken) container.replaceChildren(nextImage);
+      if (!fromCache || cachedUrl !== nextImage.currentSrc) {
+        persistLoadedIcon(host, source);
+      }
+    };
+    nextImage.src = source;
+    if (fromCache) container.replaceChildren(nextImage);
+  };
+
+  const tryNext = () => {
+    candidateIndex += 1;
+    if (candidateIndex >= candidates.length) {
+      showLetter();
+      return;
+    }
+    loadSource(candidates[candidateIndex]);
+  };
+
+  if (cachedUrl) loadSource(cachedUrl, true);
+  else {
+    showLetter();
+    tryNext();
+  }
+}
+
+/** Batch-load cached sources for a set of page URLs. */
+export async function cachedFaviconSources(urls) {
+  const hosts = [...new Set((urls || []).map(hostFromUrl).filter(Boolean))];
+  return storage.getCachedFavicons(hosts);
 }
 
 /** Backward-compatible helper returning the preferred high-resolution icon. */

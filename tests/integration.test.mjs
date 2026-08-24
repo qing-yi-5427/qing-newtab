@@ -13,8 +13,19 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
   const dom = new JSDOM(`<!doctype html><body>
     <div id="tab-shortcuts"><div id="shortcuts-grid"></div></div>
     <div id="context-menu" class="hidden">
+      <button id="context-open-bookmark" class="hidden"></button>
+      <button id="context-edit-bookmark" class="hidden"></button>
+      <button id="context-rename-bookmark-folder" class="hidden"></button>
+      <button id="context-delete-bookmark" class="hidden"></button>
+      <div id="context-bookmark-separator" class="hidden"></div>
       <button id="context-edit-shortcut" class="hidden"></button>
       <button id="context-add-shortcut"></button>
+      <button id="context-finish-managing" class="hidden"></button>
+      <button id="context-undo-shortcut"></button>
+      <button id="context-history"></button>
+      <button id="context-downloads"></button>
+      <button id="context-favorites"></button>
+      <button id="context-extensions"></button>
       <button id="context-settings"></button>
       <button id="context-export-backup"></button>
       <button id="context-import-backup"></button>
@@ -36,6 +47,14 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
     <div id="icon-preview-modal" class="hidden">
       <img id="icon-preview-img">
       <button id="icon-preview-cancel"></button><button id="icon-preview-save"></button>
+    </div>
+    <div id="shortcut-folder-modal" class="hidden">
+      <div id="shortcut-folder-window">
+        <input id="shortcut-folder-name">
+        <button id="shortcut-folder-add"></button>
+        <button id="shortcut-folder-close"></button>
+        <div id="shortcut-folder-grid"></div>
+      </div>
     </div>
   </body>`, { url: 'https://extension.test/' });
 
@@ -84,6 +103,35 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
     await nextTurn();
     assert.equal(document.getElementById('context-menu').classList.contains('hidden'), false);
     assert.equal(document.getElementById('context-edit-shortcut').classList.contains('hidden'), false);
+    assert.equal(document.getElementById('context-undo-shortcut').classList.contains('hidden'), true);
+    assert.equal(document.body.classList.contains('shortcut-managing'), true);
+    assert.equal(grid.querySelectorAll('.shortcut-remove').length, 3);
+    assert.equal(grid.querySelectorAll('.management-target').length, 1);
+
+    grid.querySelectorAll('.shortcut-remove')[1].click();
+    await nextTurn();
+    await nextTurn();
+    assert.equal((await getShortcuts()).length, 2);
+    assert.equal(document.getElementById('context-menu').classList.contains('hidden'), true);
+    document.getElementById('tab-shortcuts').dispatchEvent(new dom.window.MouseEvent(
+      'contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }
+    ));
+    assert.equal(document.getElementById('context-undo-shortcut').classList.contains('hidden'), false);
+    document.dispatchEvent(new dom.window.KeyboardEvent('keydown', {
+      key: 'z', metaKey: true, bubbles: true, cancelable: true,
+    }));
+    await nextTurn();
+    await nextTurn();
+    assert.equal((await getShortcuts()).length, 3);
+    document.getElementById('tab-shortcuts').dispatchEvent(new dom.window.MouseEvent(
+      'contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }
+    ));
+    assert.equal(document.getElementById('context-undo-shortcut').classList.contains('hidden'), true);
+
+    grid.querySelectorAll('.shortcut-item')[1].dispatchEvent(new dom.window.MouseEvent(
+      'contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }
+    ));
+    await nextTurn();
     document.getElementById('context-edit-shortcut').click();
     await nextTurn();
     assert.equal(document.getElementById('shortcut-editor-title').textContent, '编辑快捷方式');

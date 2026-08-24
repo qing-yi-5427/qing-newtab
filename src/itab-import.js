@@ -33,7 +33,14 @@ function linkFromItem(item) {
   if (!url) return null;
   let name = String(item?.name || '').trim();
   if (!name) name = new URL(url).hostname;
-  return { name, url };
+  let icon = null;
+  try {
+    const parsedIcon = new URL(String(item?.src || '').trim());
+    if (parsedIcon.protocol === 'https:') icon = parsedIcon.href;
+  } catch {
+    // iTab widgets and invalid icon values are intentionally ignored.
+  }
+  return { name, url, icon };
 }
 
 /** Convert iTab's first two pages into this extension's data model. */
@@ -46,10 +53,11 @@ export function parseITabBackup(value) {
   const shortcuts = firstPage
     .map(linkFromItem)
     .filter(Boolean)
-    .map((item) => ({ ...item, size: '1x1', icon: null }));
+    .map((item) => ({ ...item, size: '1x1' }));
   const localBookmarks = secondPage
     .map(linkFromItem)
-    .filter((item) => item && isLocalNetworkUrl(item.url));
+    .filter((item) => item && isLocalNetworkUrl(item.url))
+    .map(({ name, url }) => ({ name, url }));
 
   return { shortcuts, localBookmarks };
 }

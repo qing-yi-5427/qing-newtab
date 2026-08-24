@@ -2,7 +2,11 @@
 
 import * as storage from './storage.js';
 import * as state from './state.js';
-import { faviconCandidates, letterAvatarSVG, hostFromUrl } from './favicon.js';
+import {
+  cachedFaviconSources,
+  hostFromUrl,
+  renderWebsiteIcon,
+} from './favicon.js';
 
 let treeEl = null;
 let countEl = null;
@@ -10,6 +14,7 @@ let loaded = false;
 let renderedIconMode = null;
 let reloadTimer = null;
 let selectedFolderKey = null;
+let renderedCachedSources = {};
 
 function formatUrl(url) {
   try {
@@ -22,33 +27,15 @@ function formatUrl(url) {
 
 function renderIcon(container, url, name, iconMode) {
   const label = name || hostFromUrl(url) || '?';
-  const renderToken = {};
-  container.iconRenderToken = renderToken;
-  container.innerHTML = letterAvatarSVG(label, 18);
-  if (container.iconRenderToken !== renderToken || iconMode !== 'favicon') return;
-
-  const candidates = faviconCandidates(url);
-  if (!candidates.length) return;
-  const img = document.createElement('img');
-  img.className = 'site-icon';
-  img.alt = '';
-  img.referrerPolicy = 'no-referrer';
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  let candidateIndex = 0;
-  const tryNext = () => {
-    candidateIndex += 1;
-    if (candidateIndex < candidates.length) img.src = candidates[candidateIndex];
-  };
-  img.onerror = tryNext;
-  img.onload = () => {
-    if (img.naturalWidth < 32 || img.naturalHeight < 32) {
-      tryNext();
-      return;
-    }
-    if (container.iconRenderToken === renderToken) container.replaceChildren(img);
-  };
-  img.src = candidates[0];
+  renderWebsiteIcon(container, {
+    url,
+    label,
+    iconMode,
+    cachedUrl: renderedCachedSources[hostFromUrl(url)],
+    size: 18,
+    minimumSourceSize: 32,
+    loading: 'lazy',
+  });
 }
 
 export function collectGroups(nodes, path = [], groups = []) {
@@ -60,6 +47,7 @@ export function collectGroups(nodes, path = [], groups = []) {
     const links = children.filter((child) => child.url);
     if (links.length) {
       groups.push({
+        id: node.id,
         key: nextPath.join('/') || '书签',
         title: title || nextPath.at(-1) || '书签',
         links,
@@ -74,6 +62,8 @@ function renderBookmark(node, iconMode) {
   const link = document.createElement('a');
   link.className = 'bm-link';
   link.href = node.url;
+  link.dataset.bookmarkId = node.id;
+  link.dataset.bookmarkTitle = node.title || '';
   link.title = node.title || node.url;
   link.setAttribute('role', 'listitem');
 
@@ -109,6 +99,8 @@ function renderFolderView(groups) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'bm-folder-tab';
+    button.dataset.bookmarkFolderId = group.id;
+    button.dataset.bookmarkFolderTitle = group.title;
     button.setAttribute('role', 'tab');
     button.textContent = group.title;
     const count = document.createElement('span');
@@ -123,6 +115,7 @@ function renderFolderView(groups) {
     const group = groups[index] || groups[0];
     if (!group) return;
     selectedFolderKey = group.key;
+    void storage.saveSelectedBookmarkFolder(selectedFolderKey);
     buttons.forEach((button, buttonIndex) => {
       const active = buttonIndex === index;
       button.classList.toggle('active', active);
@@ -150,6 +143,38 @@ function renderFolderView(groups) {
   treeEl.append(tabs, panel);
   const initial = Math.max(0, groups.findIndex((group) => group.key === selectedFolderKey));
   showGroup(initial);
+}
+
+function notifyBookmarkChange() {
+  document.dispatchEvent(new document.defaultView.Event('bookmark-tree-changed'));
+  scheduleReload();
+}
+
+export function normalizeEditableBookmarkUrl(value) {
+  const input = String(value || '').trim();
+  if (!input) return '';
+  const candidate = /^[a-z][a-z\d+.-]*:/i.test(input) ? input : `https://${input}`;
+  try {
+    const parsed = new URL(candidate);
+    return ['http:', 'https:', 'file:', 'ftp:', 'edge:', 'chrome:'].includes(parsed.protocol)
+      ? parsed.href : '';
+  } catch {
+    return '';
+  }
+}
+
+export async function updateBookmarkNode(id, changes) {
+  if (!id || typeof chrome === 'undefined' || !chrome.bookmarks?.update) return false;
+  await chrome.bookmarks.update(String(id), changes);
+  notifyBookmarkChange();
+  return true;
+}
+
+export async function removeBookmarkNode(id) {
+  if (!id || typeof chrome === 'undefined' || !chrome.bookmarks?.remove) return false;
+  await chrome.bookmarks.remove(String(id));
+  notifyBookmarkChange();
+  return true;
 }
 
 function showMessage(message) {
@@ -196,7 +221,12 @@ export async function loadBookmarks() {
   if (!treeEl || loaded) return;
   loaded = true;
   treeEl.innerHTML = '';
-  renderedIconMode = (await storage.getSettings()).iconMode;
+  const [settings, savedFolderKey] = await Promise.all([
+    storage.getSettings(),
+    storage.getSelectedBookmarkFolder(),
+  ]);
+  renderedIconMode = settings.iconMode;
+  if (!selectedFolderKey) selectedFolderKey = savedFolderKey;
 
   if (typeof chrome === 'undefined' || !chrome.bookmarks) {
     showMessage('当前环境无法读取书签。');
@@ -210,6 +240,9 @@ export async function loadBookmarks() {
       showMessage('还没有书签。');
       return;
     }
+    renderedCachedSources = renderedIconMode === 'favicon'
+      ? await cachedFaviconSources(groups.flatMap((group) => group.links.map((link) => link.url)))
+      : {};
     countEl.textContent = `${total} 个 · ${groups.length} 个文件夹`;
     renderFolderView(groups);
   } catch {

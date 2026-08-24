@@ -15,16 +15,19 @@ import { initClock } from './clock.js';
 import { initSearch } from './search.js';
 import { initShortcuts } from './shortcuts.js';
 import { initBookmarks, loadBookmarks } from './bookmarks.js';
+import { initBookmarkEditor } from './bookmark-editor.js';
 import { initWallpaper } from './wallpaper.js';
 import { initSettings, applyTheme } from './settings.js';
 import { initContextMenu } from './context-menu.js';
 import { initAssistant } from './assistant.js';
 import { initToast } from './toast.js';
+import { initHomeLayout } from './layout.js';
 
 /** Application bootstrap. */
 async function main() {
   // One-time legacy data migration, then resolve settings.
   await storage.migrateLocalStorage();
+  await storage.syncFromBrowser().catch(() => ({ available: false, changed: false }));
   const settings = await storage.getSettings();
 
   // Apply theme before first paint of dynamic content.
@@ -32,20 +35,22 @@ async function main() {
 
   initClock();
   initToast();
+  initHomeLayout(settings);
   initWallpaper();
   initSearch();
   initAssistant();
   initShortcuts();
   initBookmarks();
+  initBookmarkEditor();
   initSettings();
   initContextMenu();
-  loadBookmarks();
+  if (settings.showBookmarks !== false) loadBookmarks();
 
   // Entrance stagger runs only on first paint (removed shortly after).
   document.body.classList.add('first-load');
   setTimeout(() => document.body.classList.remove('first-load'), 1200);
 
-  // Global: '/' focuses search.
+  // Global: '/', Ctrl/Command+F and Ctrl/Command+K focus unified search.
   const searchInput = document.getElementById('search-input');
   document.addEventListener('keydown', (e) => {
     const target = /** @type {HTMLElement|null} */ (e.target);
@@ -53,14 +58,18 @@ async function main() {
       target.matches('input, textarea, select') || target.isContentEditable
     );
     const modalOpen = document.querySelector('.modal:not(.hidden)');
+    const plainSlash = e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey;
+    const searchShortcut = (e.metaKey || e.ctrlKey)
+      && ['f', 'k'].includes(e.key.toLowerCase()) && !e.altKey;
     if (
-      e.key === '/' &&
-      !e.metaKey && !e.ctrlKey && !e.altKey &&
+      (plainSlash || searchShortcut) &&
       !isEditing && !modalOpen &&
       document.activeElement !== searchInput
     ) {
       e.preventDefault();
       searchInput.focus();
+      searchInput.select();
+      searchInput.dispatchEvent(new Event('input'));
     }
   });
 }

@@ -29,16 +29,25 @@ import { SEARCH_ENGINES, DEFAULT_SHORTCUTS, DEFAULT_SETTINGS } from '../src/conf
 import {
   getSettings,
   getCustomWallpaper,
+  getCachedFavicons,
   getShortcuts,
   KEYS,
   migrateLocalStorage,
+  removeCachedFavicon,
+  restoreLastShortcutSnapshot,
   saveShortcuts,
+  setCachedFavicon,
 } from '../src/storage.js';
-import { normalizeShortcutUrl } from '../src/shortcuts.js';
+import {
+  normalizeShortcutTree,
+  normalizeShortcutUrl,
+  rearrangeShortcutList,
+} from '../src/shortcuts.js';
 import { chatCompletionsUrl } from '../src/assistant.js';
-import { collectGroups } from '../src/bookmarks.js';
+import { collectGroups, normalizeEditableBookmarkUrl } from '../src/bookmarks.js';
 import { importLocalBookmarks, isLocalNetworkUrl, parseITabBackup } from '../src/itab-import.js';
 import { WEB_CHAT_PROVIDERS, webChatProvider } from '../src/web-chat.js';
+import { rankLocalItems } from '../src/local-search.js';
 
 // ---------------------------------------------------------------------------
 // favicon.js
@@ -94,14 +103,15 @@ test('hostFromUrl returns empty string for invalid input', () => {
 test('favicon resolution prefers high-resolution site icons and rejects non-web schemes', async () => {
   const candidates = faviconCandidates('https://www.example.com/path?q=1');
   assert.deepEqual(candidates, [
+    'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fwww.example.com&sz=256',
+    'https://icon.horse/icon/example.com',
     'https://favicon.im/example.com?larger=true&throw-error-on-404=true',
-    'https://www.example.com/apple-touch-icon.png',
-    'https://www.example.com/favicon-192x192.png',
     'https://www.example.com/favicon.svg',
+    'https://www.example.com/favicon-192x192.png',
+    'https://www.example.com/apple-touch-icon.png',
     'https://www.example.com/favicon-96x96.png',
     'https://www.example.com/favicon.png',
     'https://www.example.com/favicon.ico',
-    'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fwww.example.com&sz=128',
   ]);
   assert.equal(await fetchFaviconDataUrl('https://www.example.com/path?q=1'), candidates[0]);
   assert.deepEqual(faviconCandidates('chrome://bookmarks/'), []);
@@ -114,13 +124,25 @@ test('favicon resolution keeps private hosts away from public icon services', ()
   assert.equal(isPrivateIconHost('github.com'), false);
   const candidates = faviconCandidates('http://192.168.1.10:8080/dashboard');
   assert.equal(candidates.some((url) => url.includes('favicon.im') || url.includes('google.com')), false);
-  assert.equal(candidates[0], 'http://192.168.1.10:8080/apple-touch-icon.png');
+  assert.equal(candidates[0], 'http://192.168.1.10:8080/favicon.svg');
 });
 
 test('favicon resolution falls back from a subdomain to its parent domain', () => {
   const candidates = faviconCandidates('https://bbs.example.com/thread/1');
   assert.equal(candidates.includes('https://favicon.im/bbs.example.com?larger=true&throw-error-on-404=true'), true);
   assert.equal(candidates.includes('https://favicon.im/example.com?larger=true&throw-error-on-404=true'), true);
+});
+
+test('favicon resolution replaces MiYouShe pseudo-HD favicons with its official app icon', () => {
+  const candidates = faviconCandidates('https://www.miyoushe.com/ys/');
+  assert.match(candidates[0], /^https:\/\/is1-ssl\.mzstatic\.com\/image\/thumb\//);
+  assert.match(candidates[0], /256x256bb\.jpg$/);
+});
+
+test('favicon resolution restores high-resolution icons from the imported iTab sources', () => {
+  assert.equal(faviconCandidates('https://www.jd.com/')[0], 'https://files.codelife.cc/icons/jd.svg');
+  assert.equal(faviconCandidates('https://email.163.com/')[0], 'https://files.codelife.cc/icons/eb58486c2f648735.png');
+  assert.equal(faviconCandidates('https://pan.baidu.com/')[0], 'https://files.codelife.cc/icons/pan-baidu.svg');
 });
 
 // ---------------------------------------------------------------------------
@@ -176,11 +198,78 @@ test('SEARCH_ENGINES.custom rejects executable URL schemes', () => {
   );
 });
 
+test('local search ranks exact shortcut names before bookmark URL matches', () => {
+  const results = rankLocalItems([
+    { type: 'bookmark', label: '代码', detail: '工作', url: 'https://github.com/example' },
+    { type: 'shortcut', label: 'GitHub', detail: '快捷方式', url: 'https://github.com/' },
+    { type: 'browser', label: '历史记录', detail: '浏览器工具', url: 'edge://history/' },
+  ], 'github');
+  assert.equal(results[0].label, 'GitHub');
+  assert.equal(results[1].type, 'bookmark');
+});
+
 test('normalizeShortcutUrl accepts web URLs and rejects executable schemes', () => {
   assert.equal(normalizeShortcutUrl('example.com'), 'https://example.com/');
   assert.equal(normalizeShortcutUrl('http://example.com/path'), 'http://example.com/path');
   assert.equal(normalizeShortcutUrl('javascript:alert(1)'), '');
   assert.equal(normalizeShortcutUrl('data:text/html,test'), '');
+});
+
+test('dropping one shortcut on another creates a one-level folder', () => {
+  const next = rearrangeShortcutList([
+    { name: '甲', url: 'https://a.example/' },
+    { name: '乙', url: 'https://b.example/' },
+    { name: '丙', url: 'https://c.example/' },
+  ], '0', '1', 'group');
+  assert.equal(next.length, 2);
+  assert.equal(next[0].type, 'folder');
+  assert.equal(next[0].name, '新文件夹');
+  assert.deepEqual(next[0].children.map((item) => item.name), ['乙', '甲']);
+  assert.equal(next[1].name, '丙');
+});
+
+test('dropping a shortcut on a folder adds it without creating nested folders', () => {
+  const next = rearrangeShortcutList([
+    {
+      type: 'folder', name: '工作', children: [
+        { name: '甲', url: 'https://a.example/' },
+        { name: '乙', url: 'https://b.example/' },
+      ],
+    },
+    { name: '丙', url: 'https://c.example/' },
+  ], '1', '0', 'group');
+  assert.equal(next.length, 1);
+  assert.deepEqual(next[0].children.map((item) => item.name), ['甲', '乙', '丙']);
+  assert.equal(next[0].children.some((item) => item.type === 'folder'), false);
+});
+
+test('moving a child to the desktop dissolves a folder that would contain one icon', () => {
+  const next = rearrangeShortcutList([
+    {
+      type: 'folder', name: '工作', children: [
+        { name: '甲', url: 'https://a.example/' },
+        { name: '乙', url: 'https://b.example/' },
+      ],
+    },
+    { name: '丙', url: 'https://c.example/' },
+  ], '0/1', '1', 'after');
+  assert.deepEqual(next.map((item) => item.name), ['甲', '丙', '乙']);
+});
+
+test('backup shortcut normalization keeps valid folders and rejects unsafe links', () => {
+  const next = normalizeShortcutTree([
+    {
+      type: 'folder', name: '常用', children: [
+        { name: '甲', url: 'a.example', icon: 'https://icons.example/a.svg' },
+        { name: '危险', url: 'javascript:alert(1)' },
+        { name: '乙', url: 'https://b.example/', icon: 'javascript:alert(1)' },
+      ],
+    },
+  ]);
+  assert.equal(next[0].type, 'folder');
+  assert.deepEqual(next[0].children.map((item) => item.name), ['甲', '乙']);
+  assert.equal(next[0].children[0].icon, 'https://icons.example/a.svg');
+  assert.equal(next[0].children[1].icon, null);
 });
 
 test('chatCompletionsUrl accepts a base address or a full endpoint', () => {
@@ -210,10 +299,17 @@ test('bookmark groups display only the current folder name', () => {
   assert.deepEqual(groups.map((group) => group.key), ['收藏夹栏', '收藏夹栏/NYAA']);
 });
 
+test('bookmark editor accepts common bookmark schemes and rejects executable URLs', () => {
+  assert.equal(normalizeEditableBookmarkUrl('example.com'), 'https://example.com/');
+  assert.equal(normalizeEditableBookmarkUrl('edge://favorites/'), 'edge://favorites/');
+  assert.equal(normalizeEditableBookmarkUrl('javascript:alert(1)'), '');
+  assert.equal(normalizeEditableBookmarkUrl('data:text/html,test'), '');
+});
+
 test('iTab import keeps first-page web links and private second-page links', () => {
   const parsed = parseITabBackup({ navConfig: [
     { children: [
-      { name: '站点', url: 'https://example.com/path' },
+      { name: '站点', url: 'https://example.com/path', src: 'https://icons.example/site.svg' },
       { name: '历史', url: 'chrome://history/' },
       { component: 'bookmarks' },
     ] },
@@ -223,7 +319,7 @@ test('iTab import keeps first-page web links and private second-page links', () 
     ] },
   ] });
   assert.deepEqual(parsed.shortcuts, [
-    { name: '站点', url: 'https://example.com/path', size: '1x1', icon: null },
+    { name: '站点', url: 'https://example.com/path', icon: 'https://icons.example/site.svg', size: '1x1' },
   ]);
   assert.deepEqual(parsed.localBookmarks, [
     { name: '路由器', url: 'http://192.168.1.1/' },
@@ -291,6 +387,12 @@ test('DEFAULT_SETTINGS matches the locked decisions', () => {
   assert.equal(DEFAULT_SETTINGS.wallpaperDim, 45);
   assert.equal(DEFAULT_SETTINGS.shortcutColumns, 12);
   assert.equal(DEFAULT_SETTINGS.shortcutRows, 2);
+  assert.equal(DEFAULT_SETTINGS.showClock, true);
+  assert.equal(DEFAULT_SETTINGS.showAssistant, true);
+  assert.equal(DEFAULT_SETTINGS.showBookmarks, true);
+  assert.equal(DEFAULT_SETTINGS.homeOrder, 'shortcuts-first');
+  assert.equal(DEFAULT_SETTINGS.contentDensity, 'standard');
+  assert.equal(DEFAULT_SETTINGS.syncEnabled, false);
   assert.equal(DEFAULT_SETTINGS.llmApiKey, '');
   assert.equal(DEFAULT_SETTINGS.llmProvider, 'deepseek');
 });
@@ -312,6 +414,60 @@ test('KEYS.wallpaper is keyed by local date (cache-by-date, decision ②)', () =
 
 test('KEYS.favicon is keyed by domain', () => {
   assert.equal(KEYS.favicon('github.com'), 'nt_favicon_github.com');
+});
+
+test('favicon sources persist and can be read in one batch', async () => {
+  const values = new Map();
+  const previous = globalThis.localStorage;
+  globalThis.localStorage = {
+    get length() { return values.size; },
+    key: (index) => Array.from(values.keys())[index] ?? null,
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: (key) => values.delete(key),
+  };
+  try {
+    values.set(KEYS.favicon('legacy.example'), JSON.stringify({
+      dataUrl: 'data:image/png;base64,old-blurry-icon',
+      cachedAt: Date.now(),
+    }));
+    assert.equal((await getCachedFavicons(['legacy.example']))['legacy.example'], null);
+    await setCachedFavicon('github.com', 'https://icons.example/github.png');
+    await setCachedFavicon('youtube.com', 'https://icons.example/youtube.png');
+    assert.deepEqual(await getCachedFavicons(['github.com', 'youtube.com', 'github.com']), {
+      'github.com': 'https://icons.example/github.png',
+      'youtube.com': 'https://icons.example/youtube.png',
+    });
+    await removeCachedFavicon('github.com');
+    assert.equal((await getCachedFavicons(['github.com']))['github.com'], null);
+  } finally {
+    if (previous === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previous;
+  }
+});
+
+test('shortcut saves keep an automatic restorable snapshot', async () => {
+  const values = new Map();
+  const previous = globalThis.localStorage;
+  globalThis.localStorage = {
+    get length() { return values.size; },
+    key: (index) => Array.from(values.keys())[index] ?? null,
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: (key) => values.delete(key),
+  };
+  try {
+    const first = [{ name: '甲', url: 'https://a.example/', icon: null }];
+    const second = [{ name: '乙', url: 'https://b.example/', icon: null }];
+    await saveShortcuts(first);
+    await saveShortcuts(second, { reason: 'edit' });
+    assert.deepEqual(await getShortcuts(), second);
+    assert.deepEqual(await restoreLastShortcutSnapshot(), first);
+    assert.deepEqual(await getShortcuts(), first);
+  } finally {
+    if (previous === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previous;
+  }
 });
 
 test('an intentionally empty shortcut list stays empty', async () => {

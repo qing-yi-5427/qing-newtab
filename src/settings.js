@@ -8,8 +8,8 @@
 
 import * as storage from './storage.js';
 import * as state from './state.js';
-import { normalizeShortcutUrl } from './shortcuts.js';
-import { ICON_MODES, SEARCH_ENGINES, SIZES, THEME_MODES } from './config.js';
+import { normalizeShortcutTree } from './shortcuts.js';
+import { ICON_MODES, SEARCH_ENGINES, THEME_MODES } from './config.js';
 import { showToast } from './toast.js';
 import { importLocalBookmarks, parseITabBackup } from './itab-import.js';
 import { WEB_CHAT_PROVIDERS } from './web-chat.js';
@@ -111,6 +111,11 @@ export function initSettings() {
   const glassBlur = document.getElementById('glass-blur');
   const shortcutColumns = document.getElementById('shortcut-columns');
   const shortcutRows = document.getElementById('shortcut-rows');
+  const showClock = document.getElementById('show-clock');
+  const showAssistant = document.getElementById('show-assistant');
+  const showBookmarks = document.getElementById('show-bookmarks');
+  const homeOrder = document.getElementById('home-order');
+  const contentDensity = document.getElementById('content-density');
   const engSel = document.getElementById('engine-select');
   const customRow = document.getElementById('custom-engine-row');
   const customInput = document.getElementById('custom-engine-input');
@@ -118,6 +123,8 @@ export function initSettings() {
   const importBtn = document.getElementById('settings-import');
   const importFile = document.getElementById('settings-import-file');
   const clearCacheBtn = document.getElementById('settings-clear-cache');
+  const syncBtn = document.getElementById('settings-sync');
+  const restoreSnapshotBtn = document.getElementById('settings-restore-snapshot');
   const dataStatus = document.getElementById('data-status');
   const llmProvider = document.getElementById('llm-provider');
   const llmApiSettings = document.getElementById('llm-api-settings');
@@ -237,6 +244,15 @@ export function initSettings() {
   shortcutRows.addEventListener('change', () => {
     savePreference({ shortcutRows: Number(shortcutRows.value) });
   });
+  [showClock, showAssistant, showBookmarks].forEach((control) => {
+    control.addEventListener('change', () => {
+      const key = control.id === 'show-clock'
+        ? 'showClock' : control.id === 'show-assistant' ? 'showAssistant' : 'showBookmarks';
+      savePreference({ [key]: control.checked });
+    });
+  });
+  homeOrder.addEventListener('change', () => savePreference({ homeOrder: homeOrder.value }));
+  contentDensity.addEventListener('change', () => savePreference({ contentDensity: contentDensity.value }));
 
   // Search engine select.
   engSel.addEventListener('change', async () => {
@@ -314,6 +330,7 @@ export function initSettings() {
       if (iTabData) {
         if (!iTabData.shortcuts.length) throw new Error('iTab 备份中没有可用的快捷方式');
         await storage.saveShortcuts(iTabData.shortcuts);
+        document.dispatchEvent(new document.defaultView.Event('shortcut-tree-changed'));
         const bookmarkResult = await importLocalBookmarks(iTabData.localBookmarks);
         state.notifySettingsChanged();
         const message = `已导入 ${iTabData.shortcuts.length} 个快捷方式，local 收藏夹新增 ${bookmarkResult.created} 项。`;
@@ -345,6 +362,15 @@ export function initSettings() {
         shortcutRows: Math.round(numberInRange(
           incoming.shortcutRows, 1, 4, current.shortcutRows
         )),
+        showClock: typeof incoming.showClock === 'boolean' ? incoming.showClock : current.showClock,
+        showAssistant: typeof incoming.showAssistant === 'boolean'
+          ? incoming.showAssistant : current.showAssistant,
+        showBookmarks: typeof incoming.showBookmarks === 'boolean'
+          ? incoming.showBookmarks : current.showBookmarks,
+        homeOrder: ['shortcuts-first', 'bookmarks-first'].includes(incoming.homeOrder)
+          ? incoming.homeOrder : current.homeOrder,
+        contentDensity: ['standard', 'compact'].includes(incoming.contentDensity)
+          ? incoming.contentDensity : current.contentDensity,
         searchEngine: Object.hasOwn(SEARCH_ENGINES, incoming.searchEngine)
           ? incoming.searchEngine
           : current.searchEngine,
@@ -362,14 +388,7 @@ export function initSettings() {
         llmWebUrl: !incoming.llmWebUrl || isValidHttpUrl(incoming.llmWebUrl)
           ? String(incoming.llmWebUrl || '') : current.llmWebUrl,
       };
-      const nextShortcuts = backup.shortcuts.map((sc) => ({
-        name: String(sc?.name || '').trim(),
-        url: normalizeShortcutUrl(sc?.url),
-        size: SIZES.includes(sc?.size) ? sc.size : '1x1',
-        icon: typeof sc?.icon === 'string' && sc.icon.startsWith('data:image/')
-          ? sc.icon
-          : null,
-      })).filter((sc) => sc.name && sc.url);
+      const nextShortcuts = normalizeShortcutTree(backup.shortcuts);
 
       await storage.saveSettings(nextSettings);
       if (typeof backup.customWallpaper === 'string' && backup.customWallpaper.startsWith('data:image/')) {
@@ -377,6 +396,7 @@ export function initSettings() {
         customWallpaperAvailable = true;
       }
       await storage.saveShortcuts(nextShortcuts);
+      document.dispatchEvent(new document.defaultView.Event('shortcut-tree-changed'));
       applyTheme(nextSettings.theme);
       syncControls(nextSettings);
       state.notifySettingsChanged();
@@ -397,6 +417,35 @@ export function initSettings() {
     } catch {
       setDataStatus('缓存清理失败。', true);
     }
+  });
+  syncBtn.addEventListener('click', async () => {
+    const current = await storage.getSettings();
+    try {
+      const result = await storage.setSyncEnabled(!current.syncEnabled);
+      if (!result.available) {
+        setDataStatus('当前浏览器不支持扩展同步。', true);
+        return;
+      }
+      const next = await storage.getSettings();
+      syncControls(next);
+      state.notifySettingsChanged();
+      setDataStatus(next.syncEnabled
+        ? (result.source === 'remote' ? '已开启同步，并恢复云端配置。' : '已开启浏览器同步。')
+        : '已关闭浏览器同步。');
+    } catch {
+      setDataStatus('浏览器同步失败，请稍后重试。', true);
+    }
+  });
+  restoreSnapshotBtn.addEventListener('click', async () => {
+    const restored = await storage.restoreLastShortcutSnapshot();
+    if (!restored) {
+      setDataStatus('没有可恢复的快捷方式变更。');
+      return;
+    }
+    document.dispatchEvent(new document.defaultView.Event('shortcut-tree-changed'));
+    state.notifySettingsChanged();
+    setDataStatus('已恢复上一次快捷方式变更。');
+    showToast('已恢复上一次快捷方式变更。');
   });
 
   // Icon mode radio.
@@ -426,6 +475,13 @@ export function initSettings() {
     glassBlur.value = String(s.glassBlur);
     shortcutColumns.value = String(s.shortcutColumns);
     shortcutRows.value = String(s.shortcutRows);
+    showClock.checked = s.showClock !== false;
+    showAssistant.checked = s.showAssistant !== false;
+    showBookmarks.checked = s.showBookmarks !== false;
+    homeOrder.value = s.homeOrder === 'bookmarks-first' ? 'bookmarks-first' : 'shortcuts-first';
+    contentDensity.value = s.contentDensity === 'compact' ? 'compact' : 'standard';
+    syncBtn.textContent = s.syncEnabled ? '关闭浏览器同步' : '开启浏览器同步';
+    syncBtn.setAttribute('aria-pressed', s.syncEnabled ? 'true' : 'false');
     document.getElementById('wallpaper-blur-value').textContent = String(s.wallpaperBlur);
     document.getElementById('wallpaper-dim-value').textContent = `${s.wallpaperDim}%`;
     document.getElementById('glass-blur-value').textContent = String(s.glassBlur);

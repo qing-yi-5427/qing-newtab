@@ -10,6 +10,11 @@
 import { SEARCH_ENGINES } from './config.js';
 import * as storage from './storage.js';
 import * as state from './state.js';
+import {
+  initLocalSearchInvalidation,
+  searchLocalItems,
+} from './local-search.js';
+import { openBrowserPage } from './browser-pages.js';
 
 const SWITCH_ID = 'engine-switch';
 const MENU_ID = 'engine-menu';
@@ -50,14 +55,99 @@ function buildQueryUrl(q, settings) {
 export function initSearch() {
   const form = document.getElementById('search-form');
   const input = document.getElementById('search-input');
+  const localResults = document.getElementById('local-search-results');
   const btn = document.getElementById(SWITCH_ID);
   const menu = document.getElementById(MENU_ID);
+  let currentResults = [];
+  let activeResult = -1;
+  let searchVersion = 0;
+
+  function hideLocalResults() {
+    currentResults = [];
+    activeResult = -1;
+    localResults.innerHTML = '';
+    localResults.classList.add('hidden');
+    input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
+  }
+
+  function setActiveResult(index) {
+    if (!currentResults.length) return;
+    activeResult = (index + currentResults.length) % currentResults.length;
+    localResults.querySelectorAll('.local-result').forEach((button, buttonIndex) => {
+      const active = buttonIndex === activeResult;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      if (active) input.setAttribute('aria-activedescendant', button.id);
+    });
+  }
+
+  async function openResult(item) {
+    hideLocalResults();
+    if (item.type === 'browser') {
+      await openBrowserPage(item.action);
+      return;
+    }
+    window.location.href = item.url;
+  }
+
+  function renderLocalResults(results) {
+    currentResults = results;
+    activeResult = -1;
+    localResults.innerHTML = '';
+    if (!results.length) {
+      hideLocalResults();
+      return;
+    }
+    const typeLabels = { shortcut: '快捷方式', bookmark: '书签', browser: '浏览器' };
+    results.forEach((item, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.id = `local-search-result-${index}`;
+      button.className = 'local-result';
+      button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', 'false');
+      const text = document.createElement('span');
+      text.className = 'local-result-text';
+      const label = document.createElement('strong');
+      label.textContent = item.label;
+      const detail = document.createElement('small');
+      detail.textContent = item.detail;
+      text.append(label, detail);
+      const type = document.createElement('span');
+      type.className = 'local-result-type';
+      type.textContent = typeLabels[item.type] || '本地';
+      button.append(text, type);
+      button.addEventListener('pointerenter', () => setActiveResult(index));
+      button.addEventListener('click', () => void openResult(item));
+      localResults.appendChild(button);
+    });
+    localResults.classList.remove('hidden');
+    input.setAttribute('aria-expanded', 'true');
+    setActiveResult(0);
+  }
+
+  async function refreshLocalResults() {
+    const version = ++searchVersion;
+    const query = input.value.trim();
+    if (!query) {
+      hideLocalResults();
+      return;
+    }
+    const results = await searchLocalItems(query, 8);
+    if (version === searchVersion && document.activeElement === input) renderLocalResults(results);
+  }
 
   if (form && input) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (activeResult >= 0 && currentResults[activeResult]) {
+        await openResult(currentResults[activeResult]);
+        return;
+      }
       const q = input.value.trim();
       if (!q) return;
+      hideLocalResults();
       const settings = await storage.getSettings();
       if (isUrl(q)) {
         window.location.href = /^https?:\/\//i.test(q) ? q : 'https://' + q;
@@ -65,6 +155,23 @@ export function initSearch() {
       }
       window.location.href = buildQueryUrl(q, settings);
     });
+    input.addEventListener('input', () => void refreshLocalResults());
+    input.addEventListener('focus', () => void refreshLocalResults());
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown' && currentResults.length) {
+        event.preventDefault();
+        setActiveResult(activeResult + 1);
+      } else if (event.key === 'ArrowUp' && currentResults.length) {
+        event.preventDefault();
+        setActiveResult(activeResult - 1);
+      } else if (event.key === 'Escape') {
+        hideLocalResults();
+      }
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('#search-section')) hideLocalResults();
+    });
+    initLocalSearchInvalidation();
   }
 
   if (btn && menu) {
