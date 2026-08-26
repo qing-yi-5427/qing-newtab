@@ -11,6 +11,7 @@ const LAYOUT_KEYS = [
   'homeOrder',
   'contentDensity',
   'bookmarkWidth',
+  'bookmarkItemWidth',
 ];
 
 function numberInRange(value, min, max, fallback) {
@@ -37,7 +38,9 @@ export function applyHomeLayout(settings) {
   document.documentElement.dataset.density = settings.contentDensity === 'compact'
     ? 'compact' : 'standard';
   const bookmarkWidth = numberInRange(settings.bookmarkWidth, 35, 100, 100);
+  const bookmarkItemWidth = numberInRange(settings.bookmarkItemWidth, 120, 480, 240);
   document.documentElement.style.setProperty('--bookmark-width', `${bookmarkWidth}vw`);
+  document.documentElement.style.setProperty('--bookmark-item-width', `${bookmarkItemWidth}px`);
 
   const bookmarksFirst = settings.homeOrder === 'bookmarks-first';
   dashboard.classList.toggle('bookmarks-first', bookmarksFirst);

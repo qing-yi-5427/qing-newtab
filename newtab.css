@@ -427,8 +427,8 @@ body {
   font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   cursor: pointer;
 }
-.bm-folder-tab[draggable="true"],
-.bm-link[draggable="true"] { cursor: grab; }
+.bookmark-draggable { cursor: grab; touch-action: manipulation; }
+.bookmark-draggable.dragging { cursor: grabbing; user-select: none; }
 .bm-folder-tab.dragging,
 .bm-link.dragging { opacity: 0.35; }
 .bm-folder-tab.drop-before,
@@ -1148,7 +1148,7 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   padding-right: 3px;
 }
 .bm-items {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--bookmark-item-width, 240px)), 1fr));
   gap: 5px 18px;
 }
 .bm-link {
@@ -1205,7 +1205,6 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 
 @media (max-width: 900px) {
   #content { --home-inline: clamp(20px, 4vw, 36px); }
-  .bm-items { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 620px) {

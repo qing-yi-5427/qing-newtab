@@ -15,7 +15,7 @@ let renderedIconMode = null;
 let reloadTimer = null;
 let selectedFolderKey = null;
 let renderedCachedSources = {};
-let draggedBookmark = null;
+let pointerDrag = null;
 let suppressBookmarkClickUntil = 0;
 
 function formatUrl(url) {
@@ -76,9 +76,29 @@ function clearBookmarkDropState() {
   });
 }
 
+function clearBookmarkDropTargets() {
+  treeEl?.querySelectorAll('.drop-before, .drop-after').forEach((element) => {
+    element.classList.remove('drop-before', 'drop-after');
+  });
+}
+
 function bookmarkDropPlacement(event, element) {
   const rect = element.getBoundingClientRect();
   return event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+}
+
+function dropTargetAt(event, source) {
+  const hit = document.elementFromPoint?.(event.clientX, event.clientY);
+  const target = hit?.closest?.('.bookmark-draggable');
+  if (!target || target === source.element) return null;
+  if (target.dataset.bookmarkDragType !== source.type
+      || target.dataset.bookmarkParentId !== source.parentId) return null;
+  return target;
+}
+
+function moveElementBeside(source, target, placement) {
+  if (!source?.parentElement || source.parentElement !== target?.parentElement) return;
+  source.parentElement.insertBefore(source, placement === 'before' ? target : target.nextSibling);
 }
 
 export async function moveBookmarkNode(id, parentId, index) {
@@ -92,57 +112,78 @@ export async function moveBookmarkNode(id, parentId, index) {
 }
 
 function enableBookmarkDragging(element, item) {
-  element.draggable = true;
+  // Native HTML drag is inconsistent on links in Chromium new-tab pages. Pointer capture
+  // keeps mouse and pen dragging reliable without adding a drag library.
+  element.draggable = false;
+  element.classList.add('bookmark-draggable');
+  element.dataset.bookmarkDragType = item.type;
+  element.dataset.bookmarkDragId = item.id;
   element.dataset.bookmarkParentId = item.parentId || '';
   element.dataset.bookmarkIndex = String(item.index);
-  element.addEventListener('dragstart', (event) => {
-    draggedBookmark = {
+
+  element.addEventListener('dragstart', (event) => event.preventDefault());
+  element.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || event.isPrimary === false) return;
+    pointerDrag = {
       type: item.type,
       id: item.id,
       parentId: item.parentId || '',
       index: item.index,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      element,
+      active: false,
+      target: null,
+      placement: 'before',
     };
-    element.classList.add('dragging');
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', String(item.id));
+    element.setPointerCapture?.(event.pointerId);
+  });
+
+  element.addEventListener('pointermove', (event) => {
+    const drag = pointerDrag;
+    if (!drag || drag.element !== element || drag.pointerId !== event.pointerId) return;
+    if (!drag.active) {
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (distance < 7) return;
+      drag.active = true;
+      element.classList.add('dragging');
     }
-  });
-  element.addEventListener('dragover', (event) => {
-    if (!draggedBookmark
-        || draggedBookmark.type !== item.type
-        || draggedBookmark.parentId !== (item.parentId || '')
-        || draggedBookmark.id === item.id) return;
     event.preventDefault();
-    clearBookmarkDropState();
-    element.classList.add(`drop-${bookmarkDropPlacement(event, element)}`);
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const target = dropTargetAt(event, drag);
+    clearBookmarkDropTargets();
+    drag.target = target;
+    if (!target) return;
+    drag.placement = bookmarkDropPlacement(event, target);
+    target.classList.add(`drop-${drag.placement}`);
   });
-  element.addEventListener('dragleave', () => {
-    element.classList.remove('drop-before', 'drop-after');
-  });
-  element.addEventListener('drop', async (event) => {
-    if (!draggedBookmark
-        || draggedBookmark.type !== item.type
-        || draggedBookmark.parentId !== (item.parentId || '')
-        || draggedBookmark.id === item.id) return;
+
+  element.addEventListener('pointerup', async (event) => {
+    const drag = pointerDrag;
+    if (!drag || drag.element !== element || drag.pointerId !== event.pointerId) return;
+    pointerDrag = null;
+    if (!drag.active) return;
     event.preventDefault();
-    const source = draggedBookmark;
-    const placement = bookmarkDropPlacement(event, element);
-    const destination = bookmarkMoveDestination(source.index, item.index, placement);
-    suppressBookmarkClickUntil = Date.now() + 300;
-    draggedBookmark = null;
+    suppressBookmarkClickUntil = Date.now() + 400;
+    const target = drag.target;
+    const placement = drag.placement;
     clearBookmarkDropState();
-    if (destination === source.index) return;
+    if (!target) return;
+    const targetIndex = Number(target.dataset.bookmarkIndex);
+    const destination = bookmarkMoveDestination(drag.index, targetIndex, placement);
+    if (destination === drag.index) return;
+    moveElementBeside(drag.element, target, placement);
     try {
-      await moveBookmarkNode(source.id, item.parentId, destination);
+      await moveBookmarkNode(drag.id, drag.parentId, destination);
     } catch {
       scheduleReload();
     }
   });
-  element.addEventListener('dragend', () => {
-    suppressBookmarkClickUntil = Date.now() + 300;
-    draggedBookmark = null;
+
+  element.addEventListener('pointercancel', (event) => {
+    if (!pointerDrag || pointerDrag.element !== element
+        || pointerDrag.pointerId !== event.pointerId) return;
+    pointerDrag = null;
     clearBookmarkDropState();
   });
 }
@@ -204,7 +245,13 @@ function renderFolderView(groups) {
     const count = document.createElement('span');
     count.textContent = String(group.links.length);
     button.appendChild(count);
-    button.addEventListener('click', () => showGroup(index));
+    button.addEventListener('click', (event) => {
+      if (Date.now() < suppressBookmarkClickUntil) {
+        event.preventDefault();
+        return;
+      }
+      showGroup(index);
+    });
     enableBookmarkDragging(button, {
       type: 'folder',
       id: group.id,

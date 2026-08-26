@@ -417,6 +417,7 @@ test('DEFAULT_SETTINGS matches the locked decisions', () => {
   assert.equal(DEFAULT_SETTINGS.shortcutRows, 2);
   assert.equal(DEFAULT_SETTINGS.shortcutIconSize, 48);
   assert.equal(DEFAULT_SETTINGS.bookmarkWidth, 100);
+  assert.equal(DEFAULT_SETTINGS.bookmarkItemWidth, 240);
   assert.equal(DEFAULT_SETTINGS.showClock, true);
   assert.equal(DEFAULT_SETTINGS.showAssistant, true);
   assert.equal(DEFAULT_SETTINGS.showBookmarks, true);

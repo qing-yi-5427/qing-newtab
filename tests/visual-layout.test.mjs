@@ -22,12 +22,14 @@ test('homepage layout can hide optional modules and move bookmarks before shortc
       homeOrder: 'bookmarks-first',
       contentDensity: 'compact',
       bookmarkWidth: 75,
+      bookmarkItemWidth: 320,
     });
     assert.equal(document.getElementById('clock-section').classList.contains('hidden'), true);
     assert.equal(document.getElementById('assistant-section').classList.contains('hidden'), true);
     assert.equal(document.getElementById('input-row').classList.contains('assistant-hidden'), true);
     assert.equal(document.documentElement.dataset.density, 'compact');
     assert.equal(document.documentElement.style.getPropertyValue('--bookmark-width'), '75vw');
+    assert.equal(document.documentElement.style.getPropertyValue('--bookmark-item-width'), '320px');
     assert.equal(document.getElementById('home-dashboard').firstElementChild.id, 'bookmarks-section');
   } finally {
     dom.window.close();
@@ -49,5 +51,6 @@ test('visual CSS keeps folder-drop labels inside the shortcut scroller', async (
   assert.match(css, /:root\[data-density="compact"\]/);
   assert.match(css, /var\(--shortcut-icon-size, 48px\)/);
   assert.match(css, /var\(--bookmark-width, 100vw\)/);
+  assert.match(css, /var\(--bookmark-item-width, 240px\)/);
   assert.match(css, /@media \(max-width: 620px\)/);
 });

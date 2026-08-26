@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS = {
   shortcutRows: 2,
   shortcutIconSize: 48,
   bookmarkWidth: 100,
+  bookmarkItemWidth: 240,
   showClock: true,
   showAssistant: true,
   showBookmarks: true,

@@ -113,6 +113,7 @@ export function initSettings() {
   const shortcutRows = document.getElementById('shortcut-rows');
   const shortcutIconSize = document.getElementById('shortcut-icon-size');
   const bookmarkWidth = document.getElementById('bookmark-width');
+  const bookmarkItemWidth = document.getElementById('bookmark-item-width');
   const showClock = document.getElementById('show-clock');
   const showAssistant = document.getElementById('show-assistant');
   const showBookmarks = document.getElementById('show-bookmarks');
@@ -255,6 +256,7 @@ export function initSettings() {
   [
     [shortcutIconSize, 'shortcutIconSize', (value) => value],
     [bookmarkWidth, 'bookmarkWidth', (value) => `${value}%`],
+    [bookmarkItemWidth, 'bookmarkItemWidth', (value) => value],
   ].forEach(([control, key, format]) => {
     let saveTimer = null;
     control.addEventListener('input', () => {
@@ -388,6 +390,9 @@ export function initSettings() {
         bookmarkWidth: Math.round(numberInRange(
           incoming.bookmarkWidth, 35, 100, current.bookmarkWidth
         )),
+        bookmarkItemWidth: Math.round(numberInRange(
+          incoming.bookmarkItemWidth, 120, 480, current.bookmarkItemWidth
+        )),
         showClock: typeof incoming.showClock === 'boolean' ? incoming.showClock : current.showClock,
         showAssistant: typeof incoming.showAssistant === 'boolean'
           ? incoming.showAssistant : current.showAssistant,
@@ -503,6 +508,7 @@ export function initSettings() {
     shortcutRows.value = String(s.shortcutRows);
     shortcutIconSize.value = String(s.shortcutIconSize);
     bookmarkWidth.value = String(s.bookmarkWidth);
+    bookmarkItemWidth.value = String(s.bookmarkItemWidth);
     showClock.checked = s.showClock !== false;
     showAssistant.checked = s.showAssistant !== false;
     showBookmarks.checked = s.showBookmarks !== false;
@@ -515,6 +521,7 @@ export function initSettings() {
     document.getElementById('glass-blur-value').textContent = String(s.glassBlur);
     document.getElementById('shortcut-icon-size-value').textContent = String(s.shortcutIconSize);
     document.getElementById('bookmark-width-value').textContent = `${s.bookmarkWidth}%`;
+    document.getElementById('bookmark-item-width-value').textContent = String(s.bookmarkItemWidth);
     engSel.value = s.searchEngine;
     customRow.style.display = s.searchEngine === 'custom' ? '' : 'none';
     customInput.value = s.customEngineUrl;
