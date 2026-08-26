@@ -274,10 +274,15 @@ function applyShortcutLayout(settings, resetScroll = false) {
   if (!gridEl) return;
   layoutRows = integerInRange(settings.shortcutRows, 1, 4, 2);
   layoutColumns = integerInRange(settings.shortcutColumns, 4, 16, 12);
+  const iconSize = integerInRange(settings.shortcutIconSize, 28, 80, 48);
   const compact = settings.contentDensity === 'compact';
   const rowGap = compact ? 9 : 13;
-  const rowHeight = compact ? 72 : 82;
+  const rowHeight = Math.max(compact ? 72 : 82, iconSize + (compact ? 28 : 34));
+  const root = document.documentElement;
+  root.style.setProperty('--shortcut-icon-size', `${iconSize}px`);
+  root.style.setProperty('--shortcut-folder-cell-size', `${Math.max(13, Math.round((iconSize - 14) / 2))}px`);
   gridEl.style.setProperty('--shortcut-rows', String(layoutRows));
+  gridEl.style.setProperty('--shortcut-row-height', `${rowHeight}px`);
   gridEl.style.setProperty('--shortcut-grid-height', `${layoutRows * rowHeight + Math.max(0, layoutRows - 1) * rowGap}px`);
   gridEl.style.setProperty('--shortcut-cols', String(Math.max(1, Math.ceil(gridEl.childElementCount / layoutRows))));
   if (resetScroll) gridEl.parentElement.scrollLeft = 0;
@@ -906,7 +911,9 @@ export function initShortcuts() {
       if (!folderModal.classList.contains('hidden')) await renderOpenFolder();
       return;
     }
-    if (changedKeys.some((key) => ['shortcutRows', 'shortcutColumns', 'contentDensity'].includes(key))) {
+    if (changedKeys.some((key) => [
+      'shortcutRows', 'shortcutColumns', 'shortcutIconSize', 'contentDensity',
+    ].includes(key))) {
       applyShortcutLayout(await storage.getSettings(), true);
     }
   });

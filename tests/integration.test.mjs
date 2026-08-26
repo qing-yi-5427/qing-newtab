@@ -72,7 +72,9 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
   globalThis.FileReader = dom.window.FileReader;
 
   try {
-    await saveSettings({ ...(await getSettings()), shortcutColumns: 4, shortcutRows: 3 });
+    await saveSettings({
+      ...(await getSettings()), shortcutColumns: 4, shortcutRows: 3, shortcutIconSize: 60,
+    });
     await saveShortcuts([
       { name: 'One', url: 'https://one.example', size: '1x1', icon: null },
       { name: 'Two', url: 'https://two.example', size: '1x1', icon: null },
@@ -87,6 +89,8 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
     assert.equal(grid.querySelectorAll('.shortcut-item').length, 3);
     assert.equal(grid.style.getPropertyValue('--shortcut-rows'), '3');
     assert.equal(grid.style.getPropertyValue('--shortcut-cols'), '1');
+    assert.equal(document.documentElement.style.getPropertyValue('--shortcut-icon-size'), '60px');
+    assert.equal(grid.style.getPropertyValue('--shortcut-row-height'), '94px');
     assert.equal(document.getElementById('add-shortcut'), null);
 
     const firstShortcut = grid.firstElementChild;
@@ -96,6 +100,13 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
     await nextTurn();
     assert.equal(grid.style.getPropertyValue('--shortcut-rows'), '4');
     assert.equal(grid.firstElementChild, firstShortcut, 'layout changes should not rebuild icons');
+
+    await saveSettings({ ...(await getSettings()), shortcutIconSize: 40 });
+    state.notifySettingsChanged(['shortcutIconSize']);
+    await nextTurn();
+    await nextTurn();
+    assert.equal(document.documentElement.style.getPropertyValue('--shortcut-icon-size'), '40px');
+    assert.equal(grid.firstElementChild, firstShortcut, 'icon sizing should not reload icons');
 
     grid.querySelectorAll('.shortcut-item')[1].dispatchEvent(new dom.window.MouseEvent(
       'contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }

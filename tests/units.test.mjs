@@ -44,7 +44,12 @@ import {
   rearrangeShortcutList,
 } from '../src/shortcuts.js';
 import { chatCompletionsUrl } from '../src/assistant.js';
-import { collectGroups, normalizeEditableBookmarkUrl } from '../src/bookmarks.js';
+import {
+  bookmarkMoveDestination,
+  collectGroups,
+  moveBookmarkNode,
+  normalizeEditableBookmarkUrl,
+} from '../src/bookmarks.js';
 import { importLocalBookmarks, isLocalNetworkUrl, parseITabBackup } from '../src/itab-import.js';
 import { WEB_CHAT_PROVIDERS, webChatProvider } from '../src/web-chat.js';
 import { rankLocalItems } from '../src/local-search.js';
@@ -306,6 +311,29 @@ test('bookmark editor accepts common bookmark schemes and rejects executable URL
   assert.equal(normalizeEditableBookmarkUrl('data:text/html,test'), '');
 });
 
+test('bookmark drag destinations account for removal from the original index', () => {
+  assert.equal(bookmarkMoveDestination(0, 2, 'after'), 2);
+  assert.equal(bookmarkMoveDestination(3, 1, 'before'), 1);
+  assert.equal(bookmarkMoveDestination(1, 2, 'before'), 1);
+});
+
+test('bookmark drag sorting moves a node through the browser bookmarks API', async () => {
+  const previous = globalThis.chrome;
+  const moved = [];
+  globalThis.chrome = {
+    bookmarks: {
+      move: async (id, destination) => moved.push({ id, destination }),
+    },
+  };
+  try {
+    assert.equal(await moveBookmarkNode('12', '7', 3), true);
+    assert.deepEqual(moved, [{ id: '12', destination: { parentId: '7', index: 3 } }]);
+  } finally {
+    if (previous === undefined) delete globalThis.chrome;
+    else globalThis.chrome = previous;
+  }
+});
+
 test('iTab import keeps first-page web links and private second-page links', () => {
   const parsed = parseITabBackup({ navConfig: [
     { children: [
@@ -387,6 +415,8 @@ test('DEFAULT_SETTINGS matches the locked decisions', () => {
   assert.equal(DEFAULT_SETTINGS.wallpaperDim, 45);
   assert.equal(DEFAULT_SETTINGS.shortcutColumns, 12);
   assert.equal(DEFAULT_SETTINGS.shortcutRows, 2);
+  assert.equal(DEFAULT_SETTINGS.shortcutIconSize, 48);
+  assert.equal(DEFAULT_SETTINGS.bookmarkWidth, 100);
   assert.equal(DEFAULT_SETTINGS.showClock, true);
   assert.equal(DEFAULT_SETTINGS.showAssistant, true);
   assert.equal(DEFAULT_SETTINGS.showBookmarks, true);

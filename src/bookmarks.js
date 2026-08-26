@@ -15,6 +15,8 @@ let renderedIconMode = null;
 let reloadTimer = null;
 let selectedFolderKey = null;
 let renderedCachedSources = {};
+let draggedBookmark = null;
+let suppressBookmarkClickUntil = 0;
 
 function formatUrl(url) {
   try {
@@ -48,6 +50,8 @@ export function collectGroups(nodes, path = [], groups = []) {
     if (links.length) {
       groups.push({
         id: node.id,
+        parentId: node.parentId,
+        index: Number.isInteger(node.index) ? node.index : groups.length,
         key: nextPath.join('/') || '书签',
         title: title || nextPath.at(-1) || '书签',
         links,
@@ -58,7 +62,92 @@ export function collectGroups(nodes, path = [], groups = []) {
   return groups;
 }
 
-function renderBookmark(node, iconMode) {
+export function bookmarkMoveDestination(sourceIndex, targetIndex, placement = 'before') {
+  const source = Math.max(0, Math.round(Number(sourceIndex) || 0));
+  const target = Math.max(0, Math.round(Number(targetIndex) || 0));
+  let destination = target + (placement === 'after' ? 1 : 0);
+  if (source < destination) destination -= 1;
+  return Math.max(0, destination);
+}
+
+function clearBookmarkDropState() {
+  treeEl?.querySelectorAll('.bm-link, .bm-folder-tab').forEach((element) => {
+    element.classList.remove('dragging', 'drop-before', 'drop-after');
+  });
+}
+
+function bookmarkDropPlacement(event, element) {
+  const rect = element.getBoundingClientRect();
+  return event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+}
+
+export async function moveBookmarkNode(id, parentId, index) {
+  if (!id || !parentId || typeof chrome === 'undefined' || !chrome.bookmarks?.move) return false;
+  await chrome.bookmarks.move(String(id), {
+    parentId: String(parentId),
+    index: Math.max(0, Math.round(Number(index) || 0)),
+  });
+  notifyBookmarkChange();
+  return true;
+}
+
+function enableBookmarkDragging(element, item) {
+  element.draggable = true;
+  element.dataset.bookmarkParentId = item.parentId || '';
+  element.dataset.bookmarkIndex = String(item.index);
+  element.addEventListener('dragstart', (event) => {
+    draggedBookmark = {
+      type: item.type,
+      id: item.id,
+      parentId: item.parentId || '',
+      index: item.index,
+    };
+    element.classList.add('dragging');
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(item.id));
+    }
+  });
+  element.addEventListener('dragover', (event) => {
+    if (!draggedBookmark
+        || draggedBookmark.type !== item.type
+        || draggedBookmark.parentId !== (item.parentId || '')
+        || draggedBookmark.id === item.id) return;
+    event.preventDefault();
+    clearBookmarkDropState();
+    element.classList.add(`drop-${bookmarkDropPlacement(event, element)}`);
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  });
+  element.addEventListener('dragleave', () => {
+    element.classList.remove('drop-before', 'drop-after');
+  });
+  element.addEventListener('drop', async (event) => {
+    if (!draggedBookmark
+        || draggedBookmark.type !== item.type
+        || draggedBookmark.parentId !== (item.parentId || '')
+        || draggedBookmark.id === item.id) return;
+    event.preventDefault();
+    const source = draggedBookmark;
+    const placement = bookmarkDropPlacement(event, element);
+    const destination = bookmarkMoveDestination(source.index, item.index, placement);
+    suppressBookmarkClickUntil = Date.now() + 300;
+    draggedBookmark = null;
+    clearBookmarkDropState();
+    if (destination === source.index) return;
+    try {
+      await moveBookmarkNode(source.id, item.parentId, destination);
+    } catch {
+      scheduleReload();
+    }
+  });
+  element.addEventListener('dragend', () => {
+    suppressBookmarkClickUntil = Date.now() + 300;
+    draggedBookmark = null;
+    clearBookmarkDropState();
+  });
+}
+
+function renderBookmark(node, iconMode, parentId, index) {
   const link = document.createElement('a');
   link.className = 'bm-link';
   link.href = node.url;
@@ -66,6 +155,15 @@ function renderBookmark(node, iconMode) {
   link.dataset.bookmarkTitle = node.title || '';
   link.title = node.title || node.url;
   link.setAttribute('role', 'listitem');
+  link.addEventListener('click', (event) => {
+    if (Date.now() < suppressBookmarkClickUntil) event.preventDefault();
+  });
+  enableBookmarkDragging(link, {
+    type: 'bookmark',
+    id: node.id,
+    parentId,
+    index: Number.isInteger(node.index) ? node.index : index,
+  });
 
   const icon = document.createElement('span');
   icon.className = 'bm-link-icon';
@@ -107,6 +205,12 @@ function renderFolderView(groups) {
     count.textContent = String(group.links.length);
     button.appendChild(count);
     button.addEventListener('click', () => showGroup(index));
+    enableBookmarkDragging(button, {
+      type: 'folder',
+      id: group.id,
+      parentId: group.parentId,
+      index: group.index,
+    });
     tabs.appendChild(button);
     return button;
   });
@@ -126,7 +230,9 @@ function renderFolderView(groups) {
     const list = document.createElement('div');
     list.className = 'bm-items';
     list.setAttribute('role', 'list');
-    group.links.forEach((bookmark) => list.appendChild(renderBookmark(bookmark, renderedIconMode)));
+    group.links.forEach((bookmark, bookmarkIndex) => {
+      list.appendChild(renderBookmark(bookmark, renderedIconMode, group.id, bookmarkIndex));
+    });
     panel.appendChild(list);
   }
 
@@ -146,8 +252,10 @@ function renderFolderView(groups) {
 }
 
 function notifyBookmarkChange() {
-  document.dispatchEvent(new document.defaultView.Event('bookmark-tree-changed'));
-  scheduleReload();
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new document.defaultView.Event('bookmark-tree-changed'));
+  }
+  if (treeEl) scheduleReload();
 }
 
 export function normalizeEditableBookmarkUrl(value) {

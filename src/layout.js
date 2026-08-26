@@ -10,7 +10,13 @@ const LAYOUT_KEYS = [
   'showBookmarks',
   'homeOrder',
   'contentDensity',
+  'bookmarkWidth',
 ];
+
+function numberInRange(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
 
 export function applyHomeLayout(settings) {
   const clock = document.getElementById('clock-section');
@@ -30,6 +36,8 @@ export function applyHomeLayout(settings) {
   document.body.classList.toggle('clock-hidden', !showClock);
   document.documentElement.dataset.density = settings.contentDensity === 'compact'
     ? 'compact' : 'standard';
+  const bookmarkWidth = numberInRange(settings.bookmarkWidth, 35, 100, 100);
+  document.documentElement.style.setProperty('--bookmark-width', `${bookmarkWidth}vw`);
 
   const bookmarksFirst = settings.homeOrder === 'bookmarks-first';
   dashboard.classList.toggle('bookmarks-first', bookmarksFirst);

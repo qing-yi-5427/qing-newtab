@@ -111,6 +111,8 @@ export function initSettings() {
   const glassBlur = document.getElementById('glass-blur');
   const shortcutColumns = document.getElementById('shortcut-columns');
   const shortcutRows = document.getElementById('shortcut-rows');
+  const shortcutIconSize = document.getElementById('shortcut-icon-size');
+  const bookmarkWidth = document.getElementById('bookmark-width');
   const showClock = document.getElementById('show-clock');
   const showAssistant = document.getElementById('show-assistant');
   const showBookmarks = document.getElementById('show-bookmarks');
@@ -134,6 +136,7 @@ export function initSettings() {
   const llmModel = document.getElementById('llm-model');
   const llmWebUrl = document.getElementById('llm-web-url');
   let customWallpaperAvailable = false;
+  let preferenceSaveQueue = Promise.resolve();
 
   function setDataStatus(message, isError = false) {
     dataStatus.textContent = message;
@@ -192,12 +195,16 @@ export function initSettings() {
     });
   });
 
-  async function savePreference(patch) {
-    const s = await storage.getSettings();
-    const next = { ...s, ...patch };
-    await storage.saveSettings(next);
-    syncControls(next);
-    state.notifySettingsChanged(Object.keys(patch));
+  function savePreference(patch) {
+    const save = async () => {
+      const s = await storage.getSettings();
+      const next = { ...s, ...patch };
+      await storage.saveSettings(next);
+      syncControls(next);
+      state.notifySettingsChanged(Object.keys(patch));
+    };
+    preferenceSaveQueue = preferenceSaveQueue.then(save, save);
+    return preferenceSaveQueue;
   }
 
   wallpaperSource.addEventListener('change', () => {
@@ -231,10 +238,11 @@ export function initSettings() {
       const key = control.id === 'wallpaper-blur'
         ? 'wallpaperBlur'
         : control.id === 'wallpaper-dim' ? 'wallpaperDim' : 'glassBlur';
+      const value = Number(control.value);
       const output = document.getElementById(`${control.id}-value`);
-      output.textContent = control.id === 'wallpaper-dim' ? `${control.value}%` : control.value;
+      output.textContent = control.id === 'wallpaper-dim' ? `${value}%` : String(value);
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => savePreference({ [key]: Number(control.value) }), 80);
+      saveTimer = setTimeout(() => savePreference({ [key]: value }), 80);
     });
   });
 
@@ -243,6 +251,18 @@ export function initSettings() {
   });
   shortcutRows.addEventListener('change', () => {
     savePreference({ shortcutRows: Number(shortcutRows.value) });
+  });
+  [
+    [shortcutIconSize, 'shortcutIconSize', (value) => value],
+    [bookmarkWidth, 'bookmarkWidth', (value) => `${value}%`],
+  ].forEach(([control, key, format]) => {
+    let saveTimer = null;
+    control.addEventListener('input', () => {
+      const value = Number(control.value);
+      document.getElementById(`${control.id}-value`).textContent = format(String(value));
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => savePreference({ [key]: value }), 80);
+    });
   });
   [showClock, showAssistant, showBookmarks].forEach((control) => {
     control.addEventListener('change', () => {
@@ -362,6 +382,12 @@ export function initSettings() {
         shortcutRows: Math.round(numberInRange(
           incoming.shortcutRows, 1, 4, current.shortcutRows
         )),
+        shortcutIconSize: Math.round(numberInRange(
+          incoming.shortcutIconSize, 28, 80, current.shortcutIconSize
+        )),
+        bookmarkWidth: Math.round(numberInRange(
+          incoming.bookmarkWidth, 35, 100, current.bookmarkWidth
+        )),
         showClock: typeof incoming.showClock === 'boolean' ? incoming.showClock : current.showClock,
         showAssistant: typeof incoming.showAssistant === 'boolean'
           ? incoming.showAssistant : current.showAssistant,
@@ -475,6 +501,8 @@ export function initSettings() {
     glassBlur.value = String(s.glassBlur);
     shortcutColumns.value = String(s.shortcutColumns);
     shortcutRows.value = String(s.shortcutRows);
+    shortcutIconSize.value = String(s.shortcutIconSize);
+    bookmarkWidth.value = String(s.bookmarkWidth);
     showClock.checked = s.showClock !== false;
     showAssistant.checked = s.showAssistant !== false;
     showBookmarks.checked = s.showBookmarks !== false;
@@ -485,6 +513,8 @@ export function initSettings() {
     document.getElementById('wallpaper-blur-value').textContent = String(s.wallpaperBlur);
     document.getElementById('wallpaper-dim-value').textContent = `${s.wallpaperDim}%`;
     document.getElementById('glass-blur-value').textContent = String(s.glassBlur);
+    document.getElementById('shortcut-icon-size-value').textContent = String(s.shortcutIconSize);
+    document.getElementById('bookmark-width-value').textContent = `${s.bookmarkWidth}%`;
     engSel.value = s.searchEngine;
     customRow.style.display = s.searchEngine === 'custom' ? '' : 'none';
     customInput.value = s.customEngineUrl;

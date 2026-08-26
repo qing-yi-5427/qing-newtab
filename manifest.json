@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "qing-newtab",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "description": "简洁的新标签页，包含时间、搜索、快速对话、快捷方式、书签和可调壁纸。",
   "chrome_url_overrides": {
     "newtab": "newtab.html"

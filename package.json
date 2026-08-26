@@ -1,6 +1,6 @@
 {
   "name": "qing-newtab",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "private": true,
   "type": "module",
   "description": "简洁、轻量的 Edge 新标签页扩展。",

@@ -427,6 +427,14 @@ body {
   font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   cursor: pointer;
 }
+.bm-folder-tab[draggable="true"],
+.bm-link[draggable="true"] { cursor: grab; }
+.bm-folder-tab.dragging,
+.bm-link.dragging { opacity: 0.35; }
+.bm-folder-tab.drop-before,
+.bm-link.drop-before { box-shadow: inset 3px 0 0 var(--accent); }
+.bm-folder-tab.drop-after,
+.bm-link.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 .bm-folder-tab span { margin-left: 5px; opacity: .6; }
 .bm-folder-tab:hover { background: var(--surface-hover); color: var(--text-primary); }
 .bm-folder-tab.active { background: var(--surface-strong); border-color: var(--surface-border); color: var(--text-primary); }
@@ -1034,15 +1042,15 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   padding: 0 2px 22px;
 }
 #shortcuts-grid {
-  grid-template-rows: repeat(var(--shortcut-rows, 2), 82px);
+  grid-template-rows: repeat(var(--shortcut-rows, 2), var(--shortcut-row-height, 82px));
   row-gap: 13px;
   min-height: var(--shortcut-grid-height, 177px);
 }
 .shortcut-item,
 #shortcuts-grid .shortcut-item {
   width: var(--cell);
-  height: 82px;
-  min-height: 82px;
+  height: var(--shortcut-row-height, 82px);
+  min-height: var(--shortcut-row-height, 82px);
   gap: 7px;
   padding: 0;
   border: 0;
@@ -1058,8 +1066,8 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   transform: translateY(-2px);
 }
 .shortcut-icon {
-  width: 48px;
-  height: 48px;
+  width: var(--shortcut-icon-size, 48px);
+  height: var(--shortcut-icon-size, 48px);
   padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 14px;
@@ -1069,13 +1077,13 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 }
 .shortcut-icon img,
 .shortcut-icon img.site-icon {
-  width: 40px;
-  height: 40px;
+  width: calc(var(--shortcut-icon-size, 48px) - 8px);
+  height: calc(var(--shortcut-icon-size, 48px) - 8px);
   border-radius: 10px;
 }
 .shortcut-icon svg {
-  width: 40px;
-  height: 40px;
+  width: calc(var(--shortcut-icon-size, 48px) - 8px);
+  height: calc(var(--shortcut-icon-size, 48px) - 8px);
   border-radius: 10px;
 }
 .shortcut-name {
@@ -1088,10 +1096,12 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 #shortcuts-grid.empty::after { color: rgba(255, 255, 255, 0.68); }
 
 #bookmarks-section {
-  width: calc(100% + 2 * var(--home-inline));
+  position: relative;
+  left: 50%;
+  width: min(100vw, max(280px, var(--bookmark-width, 100vw)));
   min-height: 164px;
   max-height: 228px;
-  margin: auto calc(-1 * var(--home-inline)) 0;
+  margin: auto 0 0;
   padding: 17px var(--home-inline) 20px;
   border: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.13);
@@ -1099,9 +1109,10 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   color: #fff;
   background: linear-gradient(180deg, rgba(6, 12, 20, 0.09), rgba(6, 12, 20, calc(0.40 + var(--panel-strength))));
   box-shadow: none;
+  transform: translateX(-50%);
 }
 #home-dashboard.bookmarks-first #bookmarks-section {
-  margin: 23px calc(-1 * var(--home-inline)) 0;
+  margin: 23px 0 0;
 }
 #home-dashboard.bookmarks-first #shortcuts-section {
   margin: 18px 0 auto;
@@ -1141,6 +1152,7 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   gap: 5px 18px;
 }
 .bm-link {
+  position: relative;
   height: 33px;
   gap: 9px;
   padding: 0 8px;
@@ -1162,19 +1174,26 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 :root[data-density="compact"] { --cell: 76px; --gap: 9px; }
 :root[data-density="compact"] #shortcuts-section { margin-top: 18px; }
 :root[data-density="compact"] #shortcuts-grid {
-  grid-template-rows: repeat(var(--shortcut-rows, 2), 72px);
+  grid-template-rows: repeat(var(--shortcut-rows, 2), var(--shortcut-row-height, 72px));
   row-gap: 9px;
 }
 :root[data-density="compact"] .shortcut-item,
 :root[data-density="compact"] #shortcuts-grid .shortcut-item {
-  height: 72px;
-  min-height: 72px;
+  height: var(--shortcut-row-height, 72px);
+  min-height: var(--shortcut-row-height, 72px);
   gap: 5px;
 }
-:root[data-density="compact"] .shortcut-icon { width: 44px; height: 44px; padding: 4px; }
+:root[data-density="compact"] .shortcut-icon {
+  width: var(--shortcut-icon-size, 48px);
+  height: var(--shortcut-icon-size, 48px);
+  padding: 4px;
+}
 :root[data-density="compact"] .shortcut-icon img,
 :root[data-density="compact"] .shortcut-icon img.site-icon,
-:root[data-density="compact"] .shortcut-icon svg { width: 36px; height: 36px; }
+:root[data-density="compact"] .shortcut-icon svg {
+  width: calc(var(--shortcut-icon-size, 48px) - 8px);
+  height: calc(var(--shortcut-icon-size, 48px) - 8px);
+}
 :root[data-density="compact"] #bookmarks-section {
   min-height: 146px;
   max-height: 200px;
@@ -1300,14 +1319,15 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 
 .folder-icon {
   display: grid;
-  grid-template-columns: repeat(2, 17px);
-  grid-template-rows: repeat(2, 17px);
+  grid-template-columns: repeat(2, var(--shortcut-folder-cell-size, 17px));
+  grid-template-rows: repeat(2, var(--shortcut-folder-cell-size, 17px));
   gap: 3px;
   padding: 4px;
+  place-content: center;
 }
 .folder-icon-item {
-  width: 17px;
-  height: 17px;
+  width: var(--shortcut-folder-cell-size, 17px);
+  height: var(--shortcut-folder-cell-size, 17px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1319,8 +1339,8 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 .folder-icon-item svg,
 .folder-icon-item img.site-icon,
 .shortcut-icon .folder-icon-item img.site-icon {
-  width: 17px;
-  height: 17px;
+  width: var(--shortcut-folder-cell-size, 17px);
+  height: var(--shortcut-folder-cell-size, 17px);
   border-radius: 4px;
   object-fit: contain;
 }
@@ -1385,14 +1405,14 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   padding: 10px 6px 18px;
   display: grid;
   grid-template-columns: repeat(auto-fill, 86px);
-  grid-auto-rows: 82px;
+  grid-auto-rows: var(--shortcut-row-height, 82px);
   justify-content: center;
   gap: 18px 14px;
   overflow-y: auto;
 }
 #shortcut-folder-grid .shortcut-item {
   width: 86px;
-  height: 82px;
+  height: var(--shortcut-row-height, 82px);
   padding: 0;
   border: 0;
   background: transparent;

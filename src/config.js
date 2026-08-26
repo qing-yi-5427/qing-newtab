@@ -44,6 +44,8 @@ export const DEFAULT_SETTINGS = {
   glassBlur: 10,
   shortcutColumns: 12,
   shortcutRows: 2,
+  shortcutIconSize: 48,
+  bookmarkWidth: 100,
   showClock: true,
   showAssistant: true,
   showBookmarks: true,
