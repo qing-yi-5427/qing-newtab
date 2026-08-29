@@ -5,6 +5,7 @@
 
 import * as storage from './storage.js';
 import * as state from './state.js';
+import { SIZE_LIMITS } from './config.js';
 import {
   cachedFaviconSources,
   hostFromUrl,
@@ -274,11 +275,17 @@ function applyShortcutLayout(settings, resetScroll = false) {
   if (!gridEl) return;
   layoutRows = integerInRange(settings.shortcutRows, 1, 4, 2);
   layoutColumns = integerInRange(settings.shortcutColumns, 4, 16, 12);
-  const iconSize = integerInRange(settings.shortcutIconSize, 28, 80, 48);
+  const iconSize = integerInRange(
+    settings.shortcutIconSize,
+    SIZE_LIMITS.shortcutIconSize.min,
+    SIZE_LIMITS.shortcutIconSize.max,
+    48
+  );
   const compact = settings.contentDensity === 'compact';
   const rowGap = compact ? 9 : 13;
   const rowHeight = Math.max(compact ? 72 : 82, iconSize + (compact ? 28 : 34));
   const root = document.documentElement;
+  root.style.setProperty('--cell', `${Math.max(compact ? 76 : 86, iconSize + 20)}px`);
   root.style.setProperty('--shortcut-icon-size', `${iconSize}px`);
   root.style.setProperty('--shortcut-folder-cell-size', `${Math.max(13, Math.round((iconSize - 14) / 2))}px`);
   gridEl.style.setProperty('--shortcut-rows', String(layoutRows));

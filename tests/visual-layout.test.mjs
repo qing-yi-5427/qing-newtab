@@ -23,6 +23,7 @@ test('homepage layout can hide optional modules and move bookmarks before shortc
       contentDensity: 'compact',
       bookmarkWidth: 75,
       bookmarkItemWidth: 320,
+      bookmarkScale: 135,
     });
     assert.equal(document.getElementById('clock-section').classList.contains('hidden'), true);
     assert.equal(document.getElementById('assistant-section').classList.contains('hidden'), true);
@@ -30,7 +31,24 @@ test('homepage layout can hide optional modules and move bookmarks before shortc
     assert.equal(document.documentElement.dataset.density, 'compact');
     assert.equal(document.documentElement.style.getPropertyValue('--bookmark-width'), '75vw');
     assert.equal(document.documentElement.style.getPropertyValue('--bookmark-item-width'), '320px');
+    assert.equal(document.documentElement.style.getPropertyValue('--bookmark-scale'), '1.35');
+    assert.equal(document.documentElement.style.getPropertyValue('--bookmark-font-size'), '16.2px');
     assert.equal(document.getElementById('home-dashboard').firstElementChild.id, 'bookmarks-section');
+
+    applyHomeLayout({
+      showClock: true,
+      showAssistant: true,
+      showBookmarks: true,
+      homeOrder: 'shortcuts-first',
+      contentDensity: 'standard',
+      bookmarkWidth: 1,
+      bookmarkItemWidth: 2000,
+      bookmarkScale: 500,
+    });
+    assert.equal(document.documentElement.style.getPropertyValue('--bookmark-width'), '20vw');
+    assert.equal(document.documentElement.style.getPropertyValue('--bookmark-item-width'), '800px');
+    assert.equal(document.documentElement.style.getPropertyValue('--bookmark-scale'), '2');
+    assert.equal(document.documentElement.style.getPropertyValue('--bookmark-font-size'), '24px');
   } finally {
     dom.window.close();
     for (const [key, value] of Object.entries(previous)) {

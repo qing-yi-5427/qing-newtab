@@ -146,7 +146,6 @@ export function faviconCandidates(url) {
     // which URL succeeded, so raster icons are never re-scaled or re-encoded.
     candidates.push(
       `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsed.origin)}&sz=256`,
-      `https://icon.horse/icon/${encodeURIComponent(host)}`,
       `https://favicon.im/${encodeURIComponent(host)}?larger=true&throw-error-on-404=true`,
       ...siteIconCandidates(parsed.origin),
     );

@@ -37,7 +37,7 @@ async function main() {
   initToast();
   initHomeLayout(settings);
   initWallpaper();
-  initSearch();
+  initSearch(settings);
   initAssistant();
   initShortcuts();
   initBookmarks();

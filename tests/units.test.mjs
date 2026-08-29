@@ -25,7 +25,12 @@ import {
   hostFromUrl,
   isPrivateIconHost,
 } from '../src/favicon.js';
-import { SEARCH_ENGINES, DEFAULT_SHORTCUTS, DEFAULT_SETTINGS } from '../src/config.js';
+import {
+  SEARCH_ENGINES,
+  DEFAULT_SHORTCUTS,
+  DEFAULT_SETTINGS,
+  SIZE_LIMITS,
+} from '../src/config.js';
 import {
   getSettings,
   getCustomWallpaper,
@@ -109,7 +114,6 @@ test('favicon resolution prefers high-resolution site icons and rejects non-web 
   const candidates = faviconCandidates('https://www.example.com/path?q=1');
   assert.deepEqual(candidates, [
     'https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fwww.example.com&sz=256',
-    'https://icon.horse/icon/example.com',
     'https://favicon.im/example.com?larger=true&throw-error-on-404=true',
     'https://www.example.com/favicon.svg',
     'https://www.example.com/favicon-192x192.png',
@@ -418,6 +422,7 @@ test('DEFAULT_SETTINGS matches the locked decisions', () => {
   assert.equal(DEFAULT_SETTINGS.shortcutIconSize, 48);
   assert.equal(DEFAULT_SETTINGS.bookmarkWidth, 100);
   assert.equal(DEFAULT_SETTINGS.bookmarkItemWidth, 240);
+  assert.equal(DEFAULT_SETTINGS.bookmarkScale, 100);
   assert.equal(DEFAULT_SETTINGS.showClock, true);
   assert.equal(DEFAULT_SETTINGS.showAssistant, true);
   assert.equal(DEFAULT_SETTINGS.showBookmarks, true);
@@ -426,6 +431,15 @@ test('DEFAULT_SETTINGS matches the locked decisions', () => {
   assert.equal(DEFAULT_SETTINGS.syncEnabled, false);
   assert.equal(DEFAULT_SETTINGS.llmApiKey, '');
   assert.equal(DEFAULT_SETTINGS.llmProvider, 'deepseek');
+});
+
+test('layout size controls expose the expanded ranges', () => {
+  assert.deepEqual(SIZE_LIMITS, {
+    shortcutIconSize: { min: 20, max: 120 },
+    bookmarkWidth: { min: 20, max: 100 },
+    bookmarkItemWidth: { min: 80, max: 800 },
+    bookmarkScale: { min: 50, max: 200 },
+  });
 });
 
 // ---------------------------------------------------------------------------

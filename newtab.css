@@ -1099,10 +1099,10 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   position: relative;
   left: 50%;
   width: min(100vw, max(280px, var(--bookmark-width, 100vw)));
-  min-height: 164px;
-  max-height: 228px;
+  min-height: 13.667em;
+  max-height: 19em;
   margin: auto 0 0;
-  padding: 17px var(--home-inline) 20px;
+  padding: 1.417em var(--home-inline) 1.667em;
   border: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 0;
@@ -1110,6 +1110,7 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   background: linear-gradient(180deg, rgba(6, 12, 20, 0.09), rgba(6, 12, 20, calc(0.40 + var(--panel-strength))));
   box-shadow: none;
   transform: translateX(-50%);
+  font-size: var(--bookmark-font-size, 12px);
 }
 #home-dashboard.bookmarks-first #bookmarks-section {
   margin: 23px 0 0;
@@ -1120,16 +1121,17 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 #bookmarks-section .section-heading { display: none; }
 #bookmarks-tree { flex: 1; }
 .bm-folder-tabs {
-  gap: 8px;
-  padding: 0 0 12px;
+  gap: 0.667em;
+  padding: 0 0 1em;
 }
 .bm-folder-tab {
-  padding: 6px 10px;
+  max-width: 17.5em;
+  padding: 0.5em 0.833em;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: 0.75em;
   color: rgba(255, 255, 255, 0.62);
   background: transparent;
-  font-size: 12px;
+  font-size: 1em;
   font-weight: 570;
 }
 .bm-folder-tab span { opacity: 0.52; }
@@ -1144,19 +1146,19 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
 }
 .bm-folder-panel {
-  max-height: 137px;
+  max-height: 11.417em;
   padding-right: 3px;
 }
 .bm-items {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--bookmark-item-width, 240px)), 1fr));
-  gap: 5px 18px;
+  gap: 0.417em 1.5em;
 }
 .bm-link {
   position: relative;
-  height: 33px;
-  gap: 9px;
-  padding: 0 8px;
-  border-radius: 9px;
+  height: 2.75em;
+  gap: 0.75em;
+  padding: 0 0.667em;
+  border-radius: 0.75em;
   color: rgba(255, 255, 255, 0.88);
   background: rgba(255, 255, 255, 0.045);
 }
@@ -1164,11 +1166,11 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 .bm-link-icon,
 .bm-link-icon img,
 .bm-link-icon svg {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 0.417em;
 }
-.bm-link-title { font-size: 12px; font-weight: 520; }
+.bm-link-title { font-size: 1em; font-weight: 520; }
 .bm-empty { color: rgba(255, 255, 255, 0.66); }
 
 :root[data-density="compact"] { --cell: 76px; --gap: 9px; }
@@ -1195,13 +1197,13 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   height: calc(var(--shortcut-icon-size, 48px) - 8px);
 }
 :root[data-density="compact"] #bookmarks-section {
-  min-height: 146px;
-  max-height: 200px;
-  padding-top: 13px;
-  padding-bottom: 15px;
+  min-height: 12.167em;
+  max-height: 16.667em;
+  padding-top: 1.083em;
+  padding-bottom: 1.25em;
 }
-:root[data-density="compact"] .bm-folder-tabs { padding-bottom: 8px; }
-:root[data-density="compact"] .bm-link { height: 29px; }
+:root[data-density="compact"] .bm-folder-tabs { padding-bottom: 0.667em; }
+:root[data-density="compact"] .bm-link { height: 2.417em; }
 
 @media (max-width: 900px) {
   #content { --home-inline: clamp(20px, 4vw, 36px); }
@@ -1211,7 +1213,7 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   #content { --home-inline: 16px; padding-top: 22px; }
   #input-row { grid-template-columns: 1fr; gap: 10px; }
   #shortcuts-section { margin-top: 18px; padding: 0; border-radius: 0; }
-  #bookmarks-section { padding: 15px var(--home-inline) 18px; border-radius: 0; }
+  #bookmarks-section { padding: 1.25em var(--home-inline) 1.5em; border-radius: 0; }
   .bm-items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -1220,8 +1222,8 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
   #clock-section { margin-bottom: 16px; }
   #time { font-size: 56px; }
   #shortcuts-section { margin-top: 16px; }
-  #bookmarks-section { min-height: 150px; max-height: 192px; }
-  .bm-folder-panel { max-height: 106px; }
+  #bookmarks-section { min-height: 12.5em; max-height: 16em; }
+  .bm-folder-panel { max-height: 8.833em; }
 }
 
 /* ===== Desktop-like shortcut interactions ===== */

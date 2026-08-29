@@ -31,6 +31,14 @@ export const THEME_MODES = ['system', 'light', 'dark'];
 /** Icon rendering strategies for shortcuts/bookmarks. */
 export const ICON_MODES = ['letter', 'favicon'];
 
+/** Supported ranges for user-adjustable layout sizes. */
+export const SIZE_LIMITS = Object.freeze({
+  shortcutIconSize: Object.freeze({ min: 20, max: 120 }),
+  bookmarkWidth: Object.freeze({ min: 20, max: 100 }),
+  bookmarkItemWidth: Object.freeze({ min: 80, max: 800 }),
+  bookmarkScale: Object.freeze({ min: 50, max: 200 }),
+});
+
 /**
  * Canonical default settings. Persisted (merged) in chrome.storage.local.
  * @type {Record<string, string|number|boolean>}
@@ -47,6 +55,7 @@ export const DEFAULT_SETTINGS = {
   shortcutIconSize: 48,
   bookmarkWidth: 100,
   bookmarkItemWidth: 240,
+  bookmarkScale: 100,
   showClock: true,
   showAssistant: true,
   showBookmarks: true,

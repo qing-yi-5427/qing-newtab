@@ -7,7 +7,7 @@
  * + dropdown menu) kept in sync with stored settings via the shared state bus.
  */
 
-import { SEARCH_ENGINES } from './config.js';
+import { DEFAULT_SETTINGS, SEARCH_ENGINES } from './config.js';
 import * as storage from './storage.js';
 import * as state from './state.js';
 import {
@@ -52,7 +52,7 @@ function buildQueryUrl(q, settings) {
 }
 
 /** Wire the search form and engine switcher. */
-export function initSearch() {
+export function initSearch(initialSettings = DEFAULT_SETTINGS) {
   const form = document.getElementById('search-form');
   const input = document.getElementById('search-input');
   const localResults = document.getElementById('local-search-results');
@@ -61,8 +61,13 @@ export function initSearch() {
   let currentResults = [];
   let activeResult = -1;
   let searchVersion = 0;
+  let localSearchTimer = null;
+  let activeSettings = { ...DEFAULT_SETTINGS, ...initialSettings };
 
   function hideLocalResults() {
+    searchVersion += 1;
+    clearTimeout(localSearchTimer);
+    localSearchTimer = null;
     currentResults = [];
     activeResult = -1;
     localResults.innerHTML = '';
@@ -124,46 +129,52 @@ export function initSearch() {
     });
     localResults.classList.remove('hidden');
     input.setAttribute('aria-expanded', 'true');
-    setActiveResult(0);
   }
 
-  async function refreshLocalResults() {
-    const version = ++searchVersion;
+  function scheduleLocalResults(delay = 75) {
     const query = input.value.trim();
     if (!query) {
       hideLocalResults();
       return;
     }
-    const results = await searchLocalItems(query, 8);
-    if (version === searchVersion && document.activeElement === input) renderLocalResults(results);
+    clearTimeout(localSearchTimer);
+    const version = ++searchVersion;
+    localSearchTimer = setTimeout(async () => {
+      localSearchTimer = null;
+      const results = await searchLocalItems(query, 8);
+      if (version === searchVersion && document.activeElement === input) {
+        renderLocalResults(results);
+      }
+    }, delay);
   }
 
   if (form && input) {
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       if (activeResult >= 0 && currentResults[activeResult]) {
-        await openResult(currentResults[activeResult]);
+        void openResult(currentResults[activeResult]);
         return;
       }
       const q = input.value.trim();
       if (!q) return;
       hideLocalResults();
-      const settings = await storage.getSettings();
       if (isUrl(q)) {
         window.location.href = /^https?:\/\//i.test(q) ? q : 'https://' + q;
         return;
       }
-      window.location.href = buildQueryUrl(q, settings);
+      // Settings are supplied by bootstrap and kept current below. Avoid a storage
+      // round-trip in the submit path so pressing Enter starts navigation immediately.
+      window.location.href = buildQueryUrl(q, activeSettings);
     });
-    input.addEventListener('input', () => void refreshLocalResults());
-    input.addEventListener('focus', () => void refreshLocalResults());
+    input.addEventListener('input', () => scheduleLocalResults());
+    input.addEventListener('focus', () => scheduleLocalResults(0));
     input.addEventListener('keydown', (event) => {
       if (event.key === 'ArrowDown' && currentResults.length) {
         event.preventDefault();
-        setActiveResult(activeResult + 1);
+        setActiveResult(activeResult < 0 ? 0 : activeResult + 1);
       } else if (event.key === 'ArrowUp' && currentResults.length) {
         event.preventDefault();
-        setActiveResult(activeResult - 1);
+        setActiveResult(activeResult < 0 ? currentResults.length - 1 : activeResult - 1);
       } else if (event.key === 'Escape') {
         hideLocalResults();
       }
@@ -187,6 +198,7 @@ export function initSearch() {
         const settings = await storage.getSettings();
         settings.searchEngine = engine;
         await storage.saveSettings(settings);
+        activeSettings = settings;
         menu.classList.add('hidden');
         btn.setAttribute('aria-expanded', 'false');
         state.notifySettingsChanged(['searchEngine']);
@@ -230,8 +242,9 @@ export function initSearch() {
   }
 
   // Keep the switch in sync when settings change elsewhere (e.g. Preferences).
-  state.subscribe((changedKeys) => {
+  state.subscribe(async (changedKeys) => {
     if (!changedKeys || changedKeys.some((key) => ['searchEngine', 'customEngineUrl'].includes(key))) {
+      activeSettings = await storage.getSettings();
       refreshEngineUI();
     }
   });

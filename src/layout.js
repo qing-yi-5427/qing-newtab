@@ -3,6 +3,7 @@
 import * as storage from './storage.js';
 import * as state from './state.js';
 import { loadBookmarks } from './bookmarks.js';
+import { SIZE_LIMITS } from './config.js';
 
 const LAYOUT_KEYS = [
   'showClock',
@@ -12,6 +13,7 @@ const LAYOUT_KEYS = [
   'contentDensity',
   'bookmarkWidth',
   'bookmarkItemWidth',
+  'bookmarkScale',
 ];
 
 function numberInRange(value, min, max, fallback) {
@@ -37,10 +39,23 @@ export function applyHomeLayout(settings) {
   document.body.classList.toggle('clock-hidden', !showClock);
   document.documentElement.dataset.density = settings.contentDensity === 'compact'
     ? 'compact' : 'standard';
-  const bookmarkWidth = numberInRange(settings.bookmarkWidth, 35, 100, 100);
-  const bookmarkItemWidth = numberInRange(settings.bookmarkItemWidth, 120, 480, 240);
+  const bookmarkWidth = numberInRange(
+    settings.bookmarkWidth, SIZE_LIMITS.bookmarkWidth.min, SIZE_LIMITS.bookmarkWidth.max, 100
+  );
+  const bookmarkItemWidth = numberInRange(
+    settings.bookmarkItemWidth,
+    SIZE_LIMITS.bookmarkItemWidth.min,
+    SIZE_LIMITS.bookmarkItemWidth.max,
+    240
+  );
+  const bookmarkScale = numberInRange(
+    settings.bookmarkScale, SIZE_LIMITS.bookmarkScale.min, SIZE_LIMITS.bookmarkScale.max, 100
+  ) / 100;
   document.documentElement.style.setProperty('--bookmark-width', `${bookmarkWidth}vw`);
   document.documentElement.style.setProperty('--bookmark-item-width', `${bookmarkItemWidth}px`);
+  document.documentElement.style.setProperty('--bookmark-scale', String(bookmarkScale));
+  const bookmarkFontSize = Number((12 * bookmarkScale).toFixed(2));
+  document.documentElement.style.setProperty('--bookmark-font-size', `${bookmarkFontSize}px`);
 
   const bookmarksFirst = settings.homeOrder === 'bookmarks-first';
   dashboard.classList.toggle('bookmarks-first', bookmarksFirst);

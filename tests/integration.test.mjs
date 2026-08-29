@@ -108,6 +108,15 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
     assert.equal(document.documentElement.style.getPropertyValue('--shortcut-icon-size'), '40px');
     assert.equal(grid.firstElementChild, firstShortcut, 'icon sizing should not reload icons');
 
+    await saveSettings({ ...(await getSettings()), shortcutIconSize: 120 });
+    state.notifySettingsChanged(['shortcutIconSize']);
+    await nextTurn();
+    await nextTurn();
+    assert.equal(document.documentElement.style.getPropertyValue('--shortcut-icon-size'), '120px');
+    assert.equal(document.documentElement.style.getPropertyValue('--cell'), '140px');
+    assert.equal(grid.style.getPropertyValue('--shortcut-row-height'), '154px');
+    assert.equal(grid.firstElementChild, firstShortcut, 'expanded icon sizing should not reload icons');
+
     grid.querySelectorAll('.shortcut-item')[1].dispatchEvent(new dom.window.MouseEvent(
       'contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }
     ));

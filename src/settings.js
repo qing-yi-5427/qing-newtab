@@ -9,7 +9,7 @@
 import * as storage from './storage.js';
 import * as state from './state.js';
 import { normalizeShortcutTree } from './shortcuts.js';
-import { ICON_MODES, SEARCH_ENGINES, THEME_MODES } from './config.js';
+import { ICON_MODES, SEARCH_ENGINES, SIZE_LIMITS, THEME_MODES } from './config.js';
 import { showToast } from './toast.js';
 import { importLocalBookmarks, parseITabBackup } from './itab-import.js';
 import { WEB_CHAT_PROVIDERS } from './web-chat.js';
@@ -114,6 +114,7 @@ export function initSettings() {
   const shortcutIconSize = document.getElementById('shortcut-icon-size');
   const bookmarkWidth = document.getElementById('bookmark-width');
   const bookmarkItemWidth = document.getElementById('bookmark-item-width');
+  const bookmarkScale = document.getElementById('bookmark-scale');
   const showClock = document.getElementById('show-clock');
   const showAssistant = document.getElementById('show-assistant');
   const showBookmarks = document.getElementById('show-bookmarks');
@@ -257,6 +258,7 @@ export function initSettings() {
     [shortcutIconSize, 'shortcutIconSize', (value) => value],
     [bookmarkWidth, 'bookmarkWidth', (value) => `${value}%`],
     [bookmarkItemWidth, 'bookmarkItemWidth', (value) => value],
+    [bookmarkScale, 'bookmarkScale', (value) => `${value}%`],
   ].forEach(([control, key, format]) => {
     let saveTimer = null;
     control.addEventListener('input', () => {
@@ -385,13 +387,28 @@ export function initSettings() {
           incoming.shortcutRows, 1, 4, current.shortcutRows
         )),
         shortcutIconSize: Math.round(numberInRange(
-          incoming.shortcutIconSize, 28, 80, current.shortcutIconSize
+          incoming.shortcutIconSize,
+          SIZE_LIMITS.shortcutIconSize.min,
+          SIZE_LIMITS.shortcutIconSize.max,
+          current.shortcutIconSize
         )),
         bookmarkWidth: Math.round(numberInRange(
-          incoming.bookmarkWidth, 35, 100, current.bookmarkWidth
+          incoming.bookmarkWidth,
+          SIZE_LIMITS.bookmarkWidth.min,
+          SIZE_LIMITS.bookmarkWidth.max,
+          current.bookmarkWidth
         )),
         bookmarkItemWidth: Math.round(numberInRange(
-          incoming.bookmarkItemWidth, 120, 480, current.bookmarkItemWidth
+          incoming.bookmarkItemWidth,
+          SIZE_LIMITS.bookmarkItemWidth.min,
+          SIZE_LIMITS.bookmarkItemWidth.max,
+          current.bookmarkItemWidth
+        )),
+        bookmarkScale: Math.round(numberInRange(
+          incoming.bookmarkScale,
+          SIZE_LIMITS.bookmarkScale.min,
+          SIZE_LIMITS.bookmarkScale.max,
+          current.bookmarkScale
         )),
         showClock: typeof incoming.showClock === 'boolean' ? incoming.showClock : current.showClock,
         showAssistant: typeof incoming.showAssistant === 'boolean'
@@ -509,6 +526,7 @@ export function initSettings() {
     shortcutIconSize.value = String(s.shortcutIconSize);
     bookmarkWidth.value = String(s.bookmarkWidth);
     bookmarkItemWidth.value = String(s.bookmarkItemWidth);
+    bookmarkScale.value = String(s.bookmarkScale);
     showClock.checked = s.showClock !== false;
     showAssistant.checked = s.showAssistant !== false;
     showBookmarks.checked = s.showBookmarks !== false;
@@ -522,6 +540,7 @@ export function initSettings() {
     document.getElementById('shortcut-icon-size-value').textContent = String(s.shortcutIconSize);
     document.getElementById('bookmark-width-value').textContent = `${s.bookmarkWidth}%`;
     document.getElementById('bookmark-item-width-value').textContent = String(s.bookmarkItemWidth);
+    document.getElementById('bookmark-scale-value').textContent = `${s.bookmarkScale}%`;
     engSel.value = s.searchEngine;
     customRow.style.display = s.searchEngine === 'custom' ? '' : 'none';
     customInput.value = s.customEngineUrl;
