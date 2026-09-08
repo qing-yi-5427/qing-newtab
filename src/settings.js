@@ -1,9 +1,7 @@
 /**
- * settings.js
- *
- * Settings dialog: ARIA dialog with focus trap, plus the "Preferences" section
- * (theme / daily wallpaper / search engine / shortcut icon mode). Shortcut
- * editing intentionally lives on the page itself instead of in this dialog.
+ * Settings dialog: category navigation and a local draft with explicit save/cancel.
+ * Controls never write or repopulate one another while editing. Only changed
+ * fields are committed; backup/sync actions are separate, immediate operations.
  */
 
 import * as storage from './storage.js';
@@ -139,7 +137,130 @@ export function initSettings() {
   const llmModel = document.getElementById('llm-model');
   const llmWebUrl = document.getElementById('llm-web-url');
   let customWallpaperAvailable = false;
-  let preferenceSaveQueue = Promise.resolve();
+  let wallpaperDraft;
+  let initialWallpaper = '';
+  let baseline = null;
+  let selectedTheme = 'system';
+  let selectedIconMode = 'favicon';
+  let busy = false;
+  let imageLoading = false;
+  const cancelBtn = document.getElementById('settings-cancel');
+  const saveStatus = document.getElementById('settings-save-status');
+  const preview = document.getElementById('settings-shortcut-preview');
+  const numericFields = [
+    [wallpaperBlur, 'wallpaperBlur', ''], [wallpaperDim, 'wallpaperDim', '%'],
+    [glassBlur, 'glassBlur', ''], [shortcutColumns, 'shortcutColumns', ''],
+    [shortcutRows, 'shortcutRows', ''], [shortcutGap, 'shortcutGap', 'px'],
+    [shortcutIconSize, 'shortcutIconSize', 'px'], [bookmarkWidth, 'bookmarkWidth', '%'],
+    [bookmarkItemWidth, 'bookmarkItemWidth', 'px'], [bookmarkScale, 'bookmarkScale', '%'],
+  ];
+  const textFields = [
+    [wallpaperSource, 'wallpaperSource'], [homeOrder, 'homeOrder'],
+    [contentDensity, 'contentDensity'], [engSel, 'searchEngine'],
+    [customInput, 'customEngineUrl'], [llmProvider, 'llmProvider'],
+    [llmBaseUrl, 'llmBaseUrl'], [llmApiKey, 'llmApiKey'],
+    [llmModel, 'llmModel'], [llmWebUrl, 'llmWebUrl'],
+  ];
+  const checkFields = [[showClock, 'showClock'], [showAssistant, 'showAssistant'], [showBookmarks, 'showBookmarks']];
+
+  function selectTab(id, focus = false) {
+    modal.querySelectorAll('[data-settings-tab]').forEach((tab) => {
+      const active = tab.dataset.settingsTab === id;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')).classList.toggle('hidden', !active);
+      if (active && focus) tab.focus();
+    });
+    modal.querySelector('.settings-panels').scrollTop = 0;
+  }
+  modal.querySelectorAll('[data-settings-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => selectTab(tab.dataset.settingsTab));
+    tab.addEventListener('keydown', (event) => {
+      const tabs = [...modal.querySelectorAll('[data-settings-tab]')];
+      const index = tabs.indexOf(tab);
+      let next;
+      if (['ArrowDown', 'ArrowRight'].includes(event.key)) next = (index + 1) % tabs.length;
+      if (['ArrowUp', 'ArrowLeft'].includes(event.key)) next = (index - 1 + tabs.length) % tabs.length;
+      if (event.key === 'Home') next = 0;
+      if (event.key === 'End') next = tabs.length - 1;
+      if (next !== undefined) { event.preventDefault(); selectTab(tabs[next].dataset.settingsTab, true); }
+    });
+  });
+
+  function values() {
+    return {
+      theme: selectedTheme, iconMode: selectedIconMode,
+      ...Object.fromEntries(numericFields.map(([control, key]) => [key, Number(control.value)])),
+      ...Object.fromEntries(textFields.map(([control, key]) => [key, control.value.trim()])),
+      ...Object.fromEntries(checkFields.map(([control, key]) => [key, control.checked])),
+    };
+  }
+  function changedFields() {
+    if (!baseline) return {};
+    return Object.fromEntries(Object.entries(values()).filter(([key, value]) => value !== baseline[key]));
+  }
+  function hasChanges() { return Object.keys(changedFields()).length > 0 || wallpaperDraft !== undefined; }
+  function setSaveStatus(message, error = false) {
+    saveStatus.textContent = message;
+    saveStatus.classList.toggle('error', error);
+  }
+  function updateDraft() {
+    if (!baseline) return;
+    const draft = values();
+    numericFields.forEach(([control, , unit]) => {
+      const output = document.getElementById(`${control.id}-value`);
+      if (output) output.textContent = `${control.value}${unit}`;
+    });
+    customWallpaperRow.classList.toggle('hidden', draft.wallpaperSource !== 'custom');
+    wallpaperClear.disabled = busy || imageLoading || !customWallpaperAvailable;
+    customRow.classList.toggle('hidden', draft.searchEngine !== 'custom');
+    llmApiSettings.classList.toggle('hidden', draft.llmProvider !== 'api');
+    llmWebNote.classList.toggle('hidden', draft.llmProvider === 'api');
+    modal.querySelectorAll(THEME_BTNS).forEach((button) => {
+      const active = button.dataset.themeMode === selectedTheme;
+      button.classList.toggle('active', active); button.setAttribute('aria-checked', String(active));
+    });
+    modal.querySelectorAll(ICON_BTNS).forEach((button) => {
+      const active = button.dataset.iconMode === selectedIconMode;
+      button.classList.toggle('active', active); button.setAttribute('aria-checked', String(active));
+    });
+    renderPreview(draft);
+    if (!busy) setSaveStatus(hasChanges() ? '有未保存的修改，保存后应用到首页。' : '修改后点击保存，取消不保留更改。');
+  }
+  function renderPreview(draft = values()) {
+    preview.replaceChildren();
+    const columns = draft.shortcutColumns;
+    const size = 12 + draft.shortcutIconSize * 0.15;
+    const gap = 4 + draft.shortcutGap * 0.18;
+    const width = preview.parentElement.clientWidth || 500;
+    const scale = Math.min(1, (width - 24) / (columns * size + (columns - 1) * gap));
+    preview.style.gridTemplateColumns = `repeat(${columns}, ${size * scale}px)`;
+    preview.style.gap = `${gap * scale}px`;
+    for (let i = 0; i < columns * draft.shortcutRows; i += 1) {
+      const icon = document.createElement('span');
+      icon.style.width = icon.style.height = `${size * scale}px`;
+      preview.appendChild(icon);
+    }
+    document.getElementById('settings-preview-caption').textContent =
+      `每行 ${columns} 个 · 每屏 ${draft.shortcutRows} 行 · 间距 ${draft.shortcutGap}px`;
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    let previousWidth = 0;
+    const observer = new ResizeObserver(() => {
+      const width = preview.parentElement.clientWidth;
+      if (baseline && width > 0 && width !== previousWidth) {
+        previousWidth = width; renderPreview();
+      }
+    });
+    observer.observe(preview.parentElement);
+  }
+  function allowDataAction() {
+    if (!modal.classList.contains('hidden') && hasChanges()) {
+      setSaveStatus('请先保存或取消当前修改，再操作数据。', true);
+      return false;
+    }
+    return !busy;
+  }
 
   function setDataStatus(message, isError = false) {
     dataStatus.textContent = message;
@@ -148,188 +269,117 @@ export function initSettings() {
 
   async function open() {
     lastFocused = document.activeElement;
-    const [settings, customWallpaper] = await Promise.all([
-      storage.getSettings(),
-      storage.getCustomWallpaper(),
-    ]);
-    customWallpaperAvailable = !!customWallpaper;
-    syncControls(settings);
-    setDataStatus('');
     modal.classList.remove('hidden');
-    const first = modal.querySelector(FOCUSABLE);
-    if (first) first.focus();
+    document.getElementById('page-toast')?.classList.add('hidden');
+    selectTab('shortcuts');
+    setSaveStatus('正在读取设置…');
+    try {
+      const [settings, customWallpaper] = await Promise.all([storage.getSettings(), storage.getCustomWallpaper()]);
+      initialWallpaper = customWallpaper;
+      customWallpaperAvailable = !!customWallpaper;
+      wallpaperDraft = undefined;
+      syncControls(settings);
+      setDataStatus('');
+      document.getElementById('settings-tab-shortcuts').focus();
+    } catch {
+      setSaveStatus('设置读取失败，请关闭后重试。', true);
+    }
   }
   openSettingsDialog = open;
-  async function close() {
-    const patch = {};
-    for (const [control, key, valid] of [
-      [customInput, 'customEngineUrl', isValidSearchTemplate],
-      [llmBaseUrl, 'llmBaseUrl', (value) => !value || isValidHttpUrl(value)],
-      [llmWebUrl, 'llmWebUrl', (value) => !value || isValidHttpUrl(value)],
-      [llmApiKey, 'llmApiKey', () => true],
-      [llmModel, 'llmModel', () => true],
-    ]) {
-      const value = control.value.trim();
-      if (value !== control.dataset.savedValue && valid(value)) patch[key] = value;
-    }
-    await preferenceSaveQueue;
-    if (Object.keys(patch).length) {
-      await storage.saveSettings(patch);
-      state.notifySettingsChanged(Object.keys(patch));
-    }
+  function close() {
+    if (busy || imageLoading) return;
     modal.classList.add('hidden');
+    baseline = null;
+    wallpaperDraft = undefined;
     if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
   }
-
   closeBtn.addEventListener('click', close);
-  doneBtn.addEventListener('click', close);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) close();
-  });
+  cancelBtn.addEventListener('click', close);
+  modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
 
-  // Theme segmented control.
-  modal.querySelectorAll(THEME_BTNS).forEach((b) => {
-    b.addEventListener('click', async () => {
-      const mode = b.dataset.themeMode;
-      const s = await storage.getSettings();
-      s.theme = mode;
-      await storage.saveSettings({ theme: mode });
-      applyTheme(mode);
-      syncControls(s);
-      state.notifySettingsChanged(['theme']);
-    });
-  });
-
-  function savePreference(patch) {
-    const save = async () => {
-      const next = await storage.saveSettings(patch);
-      syncControls(next);
-      state.notifySettingsChanged(Object.keys(patch));
-    };
-    preferenceSaveQueue = preferenceSaveQueue.then(save, save);
-    return preferenceSaveQueue;
+  function validateDraft() {
+    const draft = values();
+    const checks = [
+      [customInput, draft.searchEngine !== 'custom' || isValidSearchTemplate(draft.customEngineUrl), '请输入有效的 http:// 或 https:// 搜索地址。'],
+      [llmBaseUrl, draft.llmProvider !== 'api' || !draft.llmBaseUrl || isValidHttpUrl(draft.llmBaseUrl), '请输入有效的接口地址，以 http:// 或 https:// 开头。'],
+      [llmWebUrl, draft.llmProvider !== 'api' || !draft.llmWebUrl || isValidHttpUrl(draft.llmWebUrl), '请输入有效的备用网页地址，或留空。'],
+    ];
+    for (const [control, valid, message] of checks) {
+      control.setCustomValidity(valid ? '' : message);
+      control.setAttribute('aria-invalid', String(!valid));
+      if (!valid) {
+        selectTab('search'); setSaveStatus(message, true); control.focus(); return false;
+      }
+    }
+    return true;
   }
-
-  wallpaperSource.addEventListener('change', () => {
-    savePreference({ wallpaperSource: wallpaperSource.value });
+  function setBusy(value) {
+    busy = value;
+    modal.querySelectorAll('button, input, select').forEach((control) => { control.disabled = value; });
+    wallpaperClear.disabled = value || !customWallpaperAvailable;
+    doneBtn.textContent = value ? '正在保存…' : '保存并关闭';
+    modal.setAttribute('aria-busy', String(value));
+  }
+  doneBtn.addEventListener('click', async () => {
+    if (busy || imageLoading || !baseline || !validateDraft()) return;
+    const patch = changedFields();
+    if (!Object.keys(patch).length && wallpaperDraft === undefined) { close(); return; }
+    setBusy(true); setSaveStatus('正在保存设置…');
+    try {
+      await storage.saveSettings(patch, wallpaperDraft === undefined ? {} : { customWallpaper: wallpaperDraft });
+      if ('theme' in patch) applyTheme(patch.theme);
+      state.notifySettingsChanged([...Object.keys(patch), ...(wallpaperDraft === undefined ? [] : ['customWallpaper'])]);
+      setBusy(false); close(); showToast('设置已保存。');
+    } catch (error) {
+      setBusy(false);
+      setSaveStatus(`保存失败：${error?.message || '请重试'}。修改已保留，可重试或取消。`, true);
+    }
   });
+
+  [...numericFields, ...textFields, ...checkFields].forEach(([control]) => {
+    control.addEventListener('input', () => {
+      control.setCustomValidity(''); control.removeAttribute('aria-invalid'); updateDraft();
+    });
+    control.addEventListener('change', updateDraft);
+  });
+  modal.querySelectorAll(THEME_BTNS).forEach((button) => button.addEventListener('click', () => {
+    selectedTheme = button.dataset.themeMode; updateDraft();
+  }));
+  modal.querySelectorAll(ICON_BTNS).forEach((button) => button.addEventListener('click', () => {
+    selectedIconMode = button.dataset.iconMode; updateDraft();
+  }));
   wallpaperChoose.addEventListener('click', () => wallpaperFile.click());
-  wallpaperClear.addEventListener('click', async () => {
-    await storage.saveCustomWallpaper('');
+  wallpaperClear.addEventListener('click', () => {
+    wallpaperDraft = initialWallpaper ? '' : undefined;
     customWallpaperAvailable = false;
-    syncControls(await storage.getSettings());
-    state.notifySettingsChanged(['customWallpaper']);
+    document.getElementById('custom-wallpaper-status').textContent = '保存后移除自定义壁纸。';
+    updateDraft();
   });
   wallpaperFile.addEventListener('change', async () => {
     const file = wallpaperFile.files?.[0];
     if (!file) return;
+    imageLoading = true;
+    doneBtn.disabled = cancelBtn.disabled = closeBtn.disabled = wallpaperChoose.disabled = wallpaperClear.disabled = true;
+    setSaveStatus('正在处理图片…');
+    let imageError = false;
     try {
-      const image = await resizeWallpaper(file);
-      await storage.saveCustomWallpaper(image);
+      wallpaperDraft = await resizeWallpaper(file);
       customWallpaperAvailable = true;
-      await savePreference({ wallpaperSource: 'custom' });
-      setDataStatus('自定义壁纸已保存。');
+      wallpaperSource.value = 'custom';
+      document.getElementById('custom-wallpaper-status').textContent = `已选择 ${file.name}，保存后应用。`;
     } catch {
-      setDataStatus('图片处理失败，请换一张较小的图片。', true);
+      imageError = true;
     } finally {
+      imageLoading = false;
+      doneBtn.disabled = cancelBtn.disabled = closeBtn.disabled = wallpaperChoose.disabled = false;
       wallpaperFile.value = '';
+      updateDraft();
+      if (imageError) setSaveStatus('图片处理失败，请换一张较小的图片。', true);
     }
-  });
-  [wallpaperBlur, wallpaperDim, glassBlur].forEach((control) => {
-    let saveTimer = null;
-    control.addEventListener('input', () => {
-      const key = control.id === 'wallpaper-blur'
-        ? 'wallpaperBlur'
-        : control.id === 'wallpaper-dim' ? 'wallpaperDim' : 'glassBlur';
-      const value = Number(control.value);
-      const output = document.getElementById(`${control.id}-value`);
-      output.textContent = control.id === 'wallpaper-dim' ? `${value}%` : String(value);
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => savePreference({ [key]: value }), 80);
-    });
-  });
-
-  shortcutColumns.addEventListener('change', () => {
-    savePreference({ shortcutColumns: Number(shortcutColumns.value) });
-  });
-  shortcutRows.addEventListener('change', () => {
-    savePreference({ shortcutRows: Number(shortcutRows.value) });
-  });
-  [
-    [shortcutGap, 'shortcutGap', (value) => `${value}px`],
-    [shortcutIconSize, 'shortcutIconSize', (value) => value],
-    [bookmarkWidth, 'bookmarkWidth', (value) => `${value}%`],
-    [bookmarkItemWidth, 'bookmarkItemWidth', (value) => value],
-    [bookmarkScale, 'bookmarkScale', (value) => `${value}%`],
-  ].forEach(([control, key, format]) => {
-    let saveTimer = null;
-    control.addEventListener('input', () => {
-      const value = Number(control.value);
-      document.getElementById(`${control.id}-value`).textContent = format(String(value));
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => savePreference({ [key]: value }), 80);
-    });
-  });
-  [showClock, showAssistant, showBookmarks].forEach((control) => {
-    control.addEventListener('change', () => {
-      const key = control.id === 'show-clock'
-        ? 'showClock' : control.id === 'show-assistant' ? 'showAssistant' : 'showBookmarks';
-      savePreference({ [key]: control.checked });
-    });
-  });
-  homeOrder.addEventListener('change', () => savePreference({ homeOrder: homeOrder.value }));
-  contentDensity.addEventListener('change', () => savePreference({ contentDensity: contentDensity.value }));
-
-  // Search engine select.
-  engSel.addEventListener('change', async () => {
-    const s = await storage.getSettings();
-    s.searchEngine = engSel.value;
-    await storage.saveSettings({ searchEngine: s.searchEngine });
-    syncControls(s);
-    state.notifySettingsChanged(['searchEngine']);
-  });
-  customInput.addEventListener('change', async () => {
-    const value = customInput.value.trim();
-    if (!isValidSearchTemplate(value)) {
-      customInput.setCustomValidity('请输入有效的 http:// 或 https:// 搜索地址。');
-      customInput.reportValidity();
-      return;
-    }
-    customInput.setCustomValidity('');
-    const s = await storage.getSettings();
-    s.customEngineUrl = value;
-    await storage.saveSettings({ customEngineUrl: value });
-  });
-
-  [llmBaseUrl, llmApiKey, llmModel, llmWebUrl].forEach((control) => {
-    control.addEventListener('change', async () => {
-      const values = {
-        llmBaseUrl: llmBaseUrl.value.trim(),
-        llmApiKey: llmApiKey.value.trim(),
-        llmModel: llmModel.value.trim(),
-        llmWebUrl: llmWebUrl.value.trim(),
-      };
-      if (values.llmBaseUrl && !isValidHttpUrl(values.llmBaseUrl)) {
-        llmBaseUrl.setCustomValidity('请输入有效的 http:// 或 https:// 地址。');
-        llmBaseUrl.reportValidity();
-        return;
-      }
-      if (values.llmWebUrl && !isValidHttpUrl(values.llmWebUrl)) {
-        llmWebUrl.setCustomValidity('请输入有效的 http:// 或 https:// 地址。');
-        llmWebUrl.reportValidity();
-        return;
-      }
-      llmBaseUrl.setCustomValidity('');
-      llmWebUrl.setCustomValidity('');
-      const key = { 'llm-base-url': 'llmBaseUrl', 'llm-api-key': 'llmApiKey', 'llm-model': 'llmModel', 'llm-web-url': 'llmWebUrl' }[control.id];
-      await savePreference({ [key]: values[key] });
-    });
-  });
-  llmProvider.addEventListener('change', () => {
-    savePreference({ llmProvider: llmProvider.value });
   });
 
   exportBtn.addEventListener('click', async () => {
+    if (!allowDataAction()) return;
     try {
       const backup = await storage.createBackup();
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -347,8 +397,9 @@ export function initSettings() {
     }
   });
 
-  importBtn.addEventListener('click', () => importFile.click());
+  importBtn.addEventListener('click', () => { if (allowDataAction()) importFile.click(); });
   importFile.addEventListener('change', async () => {
+    if (!allowDataAction()) return;
     const file = importFile.files?.[0];
     if (!file) return;
     try {
@@ -442,10 +493,13 @@ export function initSettings() {
       };
       const nextShortcuts = normalizeShortcutTree(backup.shortcuts);
 
-      await storage.saveSettings(nextSettings);
-      if (typeof backup.customWallpaper === 'string' && backup.customWallpaper.startsWith('data:image/')) {
-        await storage.saveCustomWallpaper(backup.customWallpaper);
-        customWallpaperAvailable = true;
+      const media = typeof backup.customWallpaper === 'string'
+        && (backup.customWallpaper === '' || backup.customWallpaper.startsWith('data:image/'))
+        ? { customWallpaper: backup.customWallpaper } : {};
+      await storage.saveSettings(nextSettings, media);
+      if ('customWallpaper' in media) {
+        initialWallpaper = media.customWallpaper;
+        customWallpaperAvailable = !!initialWallpaper;
       }
       await storage.saveShortcuts(nextShortcuts);
       document.dispatchEvent(new document.defaultView.Event('shortcut-tree-changed'));
@@ -463,6 +517,7 @@ export function initSettings() {
   });
 
   clearCacheBtn.addEventListener('click', async () => {
+    if (!allowDataAction()) return;
     try {
       const count = await storage.clearCaches();
       setDataStatus(`已清理 ${count} 项缓存。`);
@@ -471,6 +526,7 @@ export function initSettings() {
     }
   });
   syncBtn.addEventListener('click', async () => {
+    if (!allowDataAction()) return;
     const current = await storage.getSettings();
     try {
       const result = await storage.setSyncEnabled(!current.syncEnabled);
@@ -489,6 +545,8 @@ export function initSettings() {
     }
   });
   restoreSnapshotBtn.addEventListener('click', async () => {
+    if (!allowDataAction()) return;
+    try {
     const restored = await storage.restoreLastShortcutSnapshot();
     if (!restored) {
       setDataStatus('没有可恢复的快捷方式变更。');
@@ -498,75 +556,24 @@ export function initSettings() {
     state.notifySettingsChanged();
     setDataStatus('已恢复上一次快捷方式变更。');
     showToast('已恢复上一次快捷方式变更。');
+    } catch { setDataStatus('恢复失败，请重试。', true); }
   });
 
-  // Icon mode radio.
-  modal.querySelectorAll(ICON_BTNS).forEach((b) => {
-    b.addEventListener('click', async () => {
-      const mode = b.dataset.iconMode;
-      const s = await storage.getSettings();
-      s.iconMode = mode;
-      await storage.saveSettings({ iconMode: mode });
-      syncControls(s);
-      state.notifySettingsChanged(['iconMode']);
+  /** Populate once when opening or explicitly replacing stored configuration. */
+  function syncControls(settings) {
+    baseline = { ...settings };
+    selectedTheme = settings.theme;
+    selectedIconMode = settings.iconMode;
+    numericFields.forEach(([control, key]) => { control.value = String(settings[key]); });
+    textFields.forEach(([control, key]) => { control.value = String(settings[key] || ''); });
+    checkFields.forEach(([control, key]) => { control.checked = settings[key] !== false; });
+    [...numericFields, ...textFields, ...checkFields].forEach(([control]) => {
+      control.setCustomValidity(''); control.removeAttribute('aria-invalid');
     });
-  });
-
-  /** Reflect a settings object into all preference controls. */
-  function syncControls(s) {
-    modal.querySelectorAll(THEME_BTNS).forEach((b) => {
-      const on = b.dataset.themeMode === s.theme;
-      b.setAttribute('aria-checked', on ? 'true' : 'false');
-      b.classList.toggle('active', on);
-    });
-    wallpaperSource.value = s.wallpaperSource || (s.wallpaperEnabled ? 'bing' : 'gradient');
-    customWallpaperRow.classList.toggle('hidden', wallpaperSource.value !== 'custom');
-    wallpaperClear.disabled = !customWallpaperAvailable;
-    wallpaperBlur.value = String(s.wallpaperBlur);
-    wallpaperDim.value = String(s.wallpaperDim);
-    glassBlur.value = String(s.glassBlur);
-    shortcutColumns.value = String(s.shortcutColumns);
-    shortcutRows.value = String(s.shortcutRows);
-    shortcutGap.value = String(s.shortcutGap);
-    document.getElementById('shortcut-gap-value').textContent = `${s.shortcutGap}px`;
-    shortcutIconSize.value = String(s.shortcutIconSize);
-    bookmarkWidth.value = String(s.bookmarkWidth);
-    bookmarkItemWidth.value = String(s.bookmarkItemWidth);
-    bookmarkScale.value = String(s.bookmarkScale);
-    showClock.checked = s.showClock !== false;
-    showAssistant.checked = s.showAssistant !== false;
-    showBookmarks.checked = s.showBookmarks !== false;
-    homeOrder.value = s.homeOrder === 'bookmarks-first' ? 'bookmarks-first' : 'shortcuts-first';
-    contentDensity.value = s.contentDensity === 'compact' ? 'compact' : 'standard';
-    syncBtn.textContent = s.syncEnabled ? '关闭浏览器同步' : '开启浏览器同步';
-    syncBtn.setAttribute('aria-pressed', s.syncEnabled ? 'true' : 'false');
-    document.getElementById('wallpaper-blur-value').textContent = String(s.wallpaperBlur);
-    document.getElementById('wallpaper-dim-value').textContent = `${s.wallpaperDim}%`;
-    document.getElementById('glass-blur-value').textContent = String(s.glassBlur);
-    document.getElementById('shortcut-icon-size-value').textContent = String(s.shortcutIconSize);
-    document.getElementById('bookmark-width-value').textContent = `${s.bookmarkWidth}%`;
-    document.getElementById('bookmark-item-width-value').textContent = String(s.bookmarkItemWidth);
-    document.getElementById('bookmark-scale-value').textContent = `${s.bookmarkScale}%`;
-    engSel.value = s.searchEngine;
-    customRow.style.display = s.searchEngine === 'custom' ? '' : 'none';
-    customInput.value = s.customEngineUrl;
-    const provider = s.llmProvider === 'api' || Object.hasOwn(WEB_CHAT_PROVIDERS, s.llmProvider)
-      ? s.llmProvider : 'deepseek';
-    llmProvider.value = provider;
-    llmApiSettings.classList.toggle('hidden', provider !== 'api');
-    llmWebNote.classList.toggle('hidden', provider === 'api');
-    llmBaseUrl.value = s.llmBaseUrl || '';
-    llmApiKey.value = s.llmApiKey || '';
-    llmModel.value = s.llmModel || '';
-    llmWebUrl.value = s.llmWebUrl || '';
-    [customInput, llmBaseUrl, llmWebUrl, llmApiKey, llmModel].forEach((control) => {
-      control.dataset.savedValue = control.value.trim();
-    });
-    modal.querySelectorAll(ICON_BTNS).forEach((b) => {
-      const on = b.dataset.iconMode === s.iconMode;
-      b.setAttribute('aria-checked', on ? 'true' : 'false');
-      b.classList.toggle('active', on);
-    });
+    syncBtn.textContent = settings.syncEnabled ? '关闭浏览器同步' : '开启浏览器同步';
+    syncBtn.setAttribute('aria-pressed', String(!!settings.syncEnabled));
+    document.getElementById('custom-wallpaper-status').textContent = customWallpaperAvailable ? '已保存自定义壁纸。' : '尚未选择自定义壁纸。';
+    updateDraft();
   }
 
   // Focus trap + Esc-to-close while the dialog is open.

@@ -60,7 +60,7 @@ async function rawSet(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
   } catch {
-    /* quota or unavailable — ignore */
+    throw new Error('本地存储不可用或空间不足');
   }
 }
 
@@ -193,16 +193,38 @@ export async function getSettings() {
 }
 
 /** Merge only the supplied changed fields into the latest stored settings. */
-export async function saveSettings(patch) {
-  if (hasChrome && chrome.runtime?.sendMessage) {
-    const result = await chrome.runtime.sendMessage({ type: 'save-settings', patch });
-    if (!result?.ok) throw new Error(result?.error || '设置保存失败');
-    settingsCache = { ...DEFAULT_SETTINGS, ...result.settings };
+export async function saveSettings(patch, { customWallpaper } = {}) {
+  const write = async () => {
+    const current = await rawGet(KEYS.settings, {});
+    const settings = { ...DEFAULT_SETTINGS, ...current, ...patch };
+    const values = { [KEYS.settings]: settings, [KEYS.dataUpdatedAt]: Date.now() };
+    if (customWallpaper !== undefined) values[KEYS.customWallpaper] = customWallpaper;
+    if (hasChrome) await chrome.storage.local.set(values);
+    else {
+      // Write the media first so quota errors never report a successful settings save.
+      if (customWallpaper !== undefined) await rawSet(KEYS.customWallpaper, customWallpaper);
+      await rawSet(KEYS.settings, settings);
+      await rawSet(KEYS.dataUpdatedAt, values[KEYS.dataUpdatedAt]);
+    }
+    return settings;
+  };
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    // The origin-wide lock protects read/merge/write across new-tab documents.
+    // Saving preferences does not depend on a background worker being available.
+    settingsCache = await navigator.locks.request('nt-settings-write', write);
+  } else if (hasChrome && chrome.runtime?.sendMessage) {
+    let timer;
+    try {
+      const result = await Promise.race([
+        chrome.runtime.sendMessage({ type: 'save-settings', patch, customWallpaper }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('保存超时，请重新加载扩展后重试')), 8000); }),
+      ]);
+      if (!result?.ok) throw new Error(result?.error || '设置保存失败');
+      settingsCache = { ...DEFAULT_SETTINGS, ...result.settings };
+    } finally { clearTimeout(timer); }
   } else {
-    settingsCache = { ...(await getSettings()), ...patch };
-    await rawSet(KEYS.settings, settingsCache);
+    settingsCache = await write();
   }
-  await markDataUpdated();
   scheduleSyncWrite();
   return { ...settingsCache };
 }
@@ -331,6 +353,7 @@ export async function syncFromBrowser({ preferRemote = false } = {}) {
 }
 
 export async function setSyncEnabled(enabled) {
+  if (!hasSync) return { available: false, changed: false };
   const settings = await getSettings();
   settingsCache = { ...settings, syncEnabled: !!enabled };
   await rawSet(KEYS.settings, settingsCache);

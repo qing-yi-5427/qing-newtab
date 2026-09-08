@@ -136,80 +136,17 @@
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <div class="modal-content settings-modal">
-      <div class="settings-header">
-        <h3 id="settings-title">设置</h3>
-        <button id="settings-close" class="modal-close" aria-label="关闭设置">&times;</button>
-      </div>
-
-      <div class="prefs-section">
-        <h4 class="prefs-title">偏好设置</h4>
-
-        <div class="pref-row">
-          <span class="pref-label" id="pref-theme-label">主题</span>
-          <div class="segmented" role="radiogroup" aria-labelledby="pref-theme-label">
-            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="system" role="radio" aria-checked="true">跟随系统</button>
-            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="light" role="radio" aria-checked="false">浅色</button>
-            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="dark" role="radio" aria-checked="false">深色</button>
-          </div>
-        </div>
-
-        <div class="pref-row">
-          <label class="pref-label" for="wallpaper-source">背景壁纸</label>
-          <select id="wallpaper-source" class="pref-select">
-            <option value="bing">必应每日壁纸</option>
-            <option value="custom">自定义壁纸</option>
-            <option value="gradient">纯色渐变</option>
-          </select>
-        </div>
-
-        <div class="pref-row" id="custom-wallpaper-row">
-          <span class="pref-label">自定义图片</span>
-          <div class="inline-actions">
-            <button id="custom-wallpaper-choose" class="secondary-btn" type="button">选择图片</button>
-            <button id="custom-wallpaper-clear" class="secondary-btn" type="button">移除</button>
-            <input id="custom-wallpaper-file" type="file" accept="image/*" hidden>
-          </div>
-        </div>
-
-        <label class="pref-row range-row" for="wallpaper-blur">
-          <span class="pref-label">背景模糊 <output id="wallpaper-blur-value">0</output></span>
-          <input id="wallpaper-blur" type="range" min="0" max="20" step="1">
-        </label>
-
-        <label class="pref-row range-row" for="wallpaper-dim">
-          <span class="pref-label">背景变暗 <output id="wallpaper-dim-value">45%</output></span>
-          <input id="wallpaper-dim" type="range" min="0" max="75" step="1">
-        </label>
-
-        <label class="pref-row range-row" for="glass-blur">
-          <span class="pref-label">面板清晰度 <output id="glass-blur-value">10</output></span>
-          <input id="glass-blur" type="range" min="0" max="30" step="1">
-        </label>
-
-        <div class="pref-row">
-          <label class="pref-label" id="pref-engine-label" for="engine-select">搜索引擎</label>
-          <select id="engine-select" class="pref-select" aria-labelledby="pref-engine-label">
-            <option value="bing">Bing</option>
-            <option value="google">Google</option>
-            <option value="custom">自定义</option>
-          </select>
-        </div>
-
-        <div class="pref-row" id="custom-engine-row">
-          <label class="pref-label" for="custom-engine-input">自定义搜索地址</label>
-          <input type="text" id="custom-engine-input" class="pref-input" placeholder="https://example.com/search?q=%s" aria-label="自定义搜索地址">
-        </div>
-
-        <div class="pref-row">
-          <span class="pref-label" id="pref-icon-label">快捷方式图标</span>
-          <div class="segmented" role="radiogroup" aria-labelledby="pref-icon-label">
-            <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="letter" role="radio" aria-checked="false">首字母</button>
-            <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="favicon" role="radio" aria-checked="true">网站图标</button>
-          </div>
-        </div>
-
-        <div class="pref-row">
+  <div class="modal-content settings-modal">
+    <header class="settings-header"><div><h3 id="settings-title">设置</h3><p>安排你的新标签页</p></div><button id="settings-close" class="modal-close" type="button" aria-label="取消并关闭设置">&times;</button></header>
+    <div class="settings-body">
+      <nav class="settings-nav" role="tablist" aria-label="设置分类" aria-orientation="vertical"><button id="settings-tab-shortcuts" type="button" role="tab" aria-controls="settings-panel-shortcuts" aria-selected="true" tabindex="0" data-settings-tab="shortcuts">快捷方式</button>
+<button id="settings-tab-appearance" type="button" role="tab" aria-controls="settings-panel-appearance" aria-selected="false" tabindex="-1" data-settings-tab="appearance">外观</button>
+<button id="settings-tab-home" type="button" role="tab" aria-controls="settings-panel-home" aria-selected="false" tabindex="-1" data-settings-tab="home">首页与书签</button>
+<button id="settings-tab-search" type="button" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1" data-settings-tab="search">搜索与对话</button>
+<button id="settings-tab-data" type="button" role="tab" aria-controls="settings-panel-data" aria-selected="false" tabindex="-1" data-settings-tab="data">数据管理</button></nav>
+      <div class="settings-panels"><section id="settings-panel-shortcuts" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-shortcuts"><h4>快捷方式</h4><p class="settings-description">调整每屏数量、图标大小和留白。图标与未排满的末行始终居中。</p>
+  <div class="shortcut-preview" aria-label="快捷方式布局预览"><div id="settings-shortcut-preview" aria-hidden="true"></div><span id="settings-preview-caption"></span></div>
+  <div class="settings-card"><div class="pref-row">
           <span class="pref-label">快捷方式布局</span>
           <div class="shortcut-layout-controls">
             <label>每行图标数
@@ -225,7 +162,7 @@
                 <option value="9">9</option>
                 <option value="10">10</option>
                 <option value="11">11</option>
-                <option value="12" selected>12</option>
+                <option value="12" selected="">12</option>
                 <option value="13">13</option>
                 <option value="14">14</option>
                 <option value="15">15</option>
@@ -235,69 +172,101 @@
             <label>每屏行数
               <select id="shortcut-rows" class="pref-select compact-select" aria-label="快捷方式行数">
                 <option value="1">1</option>
-                <option value="2" selected>2</option>
+                <option value="2" selected="">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>
               </select>
             </label>
           </div>
-        </div>
-
-        <label class="pref-row range-row" for="shortcut-gap">
+        </div><label class="pref-row range-row" for="shortcut-gap">
           <span class="pref-label">图标间距 <output id="shortcut-gap-value">16px</output></span>
           <input id="shortcut-gap" type="range" min="0" max="80" step="2">
-        </label>
-        <p class="pref-hint">图标居中排列，超出每屏数量时横向滚动；窗口较窄时自动减少每行数量。</p>
-
-        <label class="pref-row range-row" for="shortcut-icon-size">
+        </label><label class="pref-row range-row" for="shortcut-icon-size">
           <span class="pref-label">图标大小 <output id="shortcut-icon-size-value">48</output></span>
           <input id="shortcut-icon-size" type="range" min="20" max="120" step="2">
-        </label>
-
-        <label class="pref-row range-row" for="bookmark-width">
-          <span class="pref-label">书签区域宽度 <output id="bookmark-width-value">100%</output></span>
-          <input id="bookmark-width" type="range" min="20" max="100" step="5">
-        </label>
-
-        <label class="pref-row range-row" for="bookmark-item-width">
-          <span class="pref-label">单个书签宽度 <output id="bookmark-item-width-value">240</output></span>
-          <input id="bookmark-item-width" type="range" min="80" max="800" step="10">
-        </label>
-
-        <label class="pref-row range-row" for="bookmark-scale">
-          <span class="pref-label">书签整体大小 <output id="bookmark-scale-value">100%</output></span>
-          <input id="bookmark-scale" type="range" min="50" max="200" step="5">
-        </label>
-
-        <div class="pref-row">
+        </label></div>
+  <div class="settings-card"><div class="pref-row">
+          <span class="pref-label" id="pref-icon-label">快捷方式图标</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="pref-icon-label">
+            <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="letter" role="radio" aria-checked="false">首字母</button>
+            <button type="button" class="seg-btn pref-icon-btn" data-icon-mode="favicon" role="radio" aria-checked="true">网站图标</button>
+          </div>
+        </div></div>
+  <p class="settings-note">预览为缩略示意。超出每屏数量可横向滚动；窗口较窄时会自动减少每行数量。</p></section><section id="settings-panel-appearance" class="settings-panel hidden" role="tabpanel" aria-labelledby="settings-tab-appearance"><h4>外观</h4><p class="settings-description">选择页面主题与背景，让新标签页更适合你的阅读习惯。</p>
+  <div class="settings-card"><div class="pref-row">
+          <span class="pref-label" id="pref-theme-label">主题</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="pref-theme-label">
+            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="system" role="radio" aria-checked="true">跟随系统</button>
+            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="light" role="radio" aria-checked="false">浅色</button>
+            <button type="button" class="seg-btn pref-theme-btn" data-theme-mode="dark" role="radio" aria-checked="false">深色</button>
+          </div>
+        </div><div class="pref-row">
+          <label class="pref-label" for="wallpaper-source">背景壁纸</label>
+          <select id="wallpaper-source" class="pref-select">
+            <option value="bing">必应每日壁纸</option>
+            <option value="custom">自定义壁纸</option>
+            <option value="gradient">纯色渐变</option>
+          </select>
+        </div><div class="pref-row" id="custom-wallpaper-row">
+          <span class="pref-label">自定义图片</span>
+          <div class="inline-actions">
+            <button id="custom-wallpaper-choose" class="secondary-btn" type="button">选择图片</button>
+            <button id="custom-wallpaper-clear" class="secondary-btn" type="button">移除</button>
+            <input id="custom-wallpaper-file" type="file" accept="image/*" hidden="">
+          </div>
+        </div><p id="custom-wallpaper-status" class="settings-note"></p></div>
+  <div class="settings-card"><label class="pref-row range-row" for="wallpaper-blur">
+          <span class="pref-label">背景模糊 <output id="wallpaper-blur-value">0</output></span>
+          <input id="wallpaper-blur" type="range" min="0" max="20" step="1">
+        </label><label class="pref-row range-row" for="wallpaper-dim">
+          <span class="pref-label">背景变暗 <output id="wallpaper-dim-value">45%</output></span>
+          <input id="wallpaper-dim" type="range" min="0" max="75" step="1">
+        </label><label class="pref-row range-row" for="glass-blur">
+          <span class="pref-label">面板清晰度 <output id="glass-blur-value">10</output></span>
+          <input id="glass-blur" type="range" min="0" max="30" step="1">
+        </label></div></section><section id="settings-panel-home" class="settings-panel hidden" role="tabpanel" aria-labelledby="settings-tab-home"><h4>首页与书签</h4><p class="settings-description">决定首页显示哪些内容，以及书签区域的大小。</p>
+  <div class="settings-card"><div class="pref-row">
           <span class="pref-label">首页显示</span>
           <div class="pref-checks">
-            <label><input id="show-clock" type="checkbox" checked> 时间</label>
-            <label><input id="show-assistant" type="checkbox" checked> 快速对话</label>
-            <label><input id="show-bookmarks" type="checkbox" checked> 书签</label>
+            <label><input id="show-clock" type="checkbox" checked=""> 时间</label>
+            <label><input id="show-assistant" type="checkbox" checked=""> 快速对话</label>
+            <label><input id="show-bookmarks" type="checkbox" checked=""> 书签</label>
           </div>
-        </div>
-
-        <div class="pref-row">
+        </div><div class="pref-row">
           <label class="pref-label" for="home-order">内容顺序</label>
           <select id="home-order" class="pref-select">
             <option value="shortcuts-first">快捷方式在前</option>
             <option value="bookmarks-first">书签在前</option>
           </select>
-        </div>
-
-        <div class="pref-row">
+        </div><div class="pref-row">
           <label class="pref-label" for="content-density">显示密度</label>
           <select id="content-density" class="pref-select">
             <option value="standard">标准</option>
             <option value="compact">紧凑</option>
           </select>
-        </div>
-      </div>
-
-      <div class="prefs-section">
-        <h4 class="prefs-title">快速对话</h4>
-        <label class="settings-field">
+        </div></div>
+  <div class="settings-card"><h5>书签布局</h5><label class="pref-row range-row" for="bookmark-width">
+          <span class="pref-label">书签区域宽度 <output id="bookmark-width-value">100%</output></span>
+          <input id="bookmark-width" type="range" min="20" max="100" step="5">
+        </label><label class="pref-row range-row" for="bookmark-item-width">
+          <span class="pref-label">单个书签宽度 <output id="bookmark-item-width-value">240</output></span>
+          <input id="bookmark-item-width" type="range" min="80" max="800" step="10">
+        </label><label class="pref-row range-row" for="bookmark-scale">
+          <span class="pref-label">书签整体大小 <output id="bookmark-scale-value">100%</output></span>
+          <input id="bookmark-scale" type="range" min="50" max="200" step="5">
+        </label></div></section><section id="settings-panel-search" class="settings-panel hidden" role="tabpanel" aria-labelledby="settings-tab-search"><h4>搜索与对话</h4><p class="settings-description">搜索引擎和对话服务独立设置。接口密钥仅保存在本机。</p>
+  <div class="settings-card"><h5>搜索</h5><div class="pref-row">
+          <label class="pref-label" id="pref-engine-label" for="engine-select">搜索引擎</label>
+          <select id="engine-select" class="pref-select" aria-labelledby="pref-engine-label">
+            <option value="bing">Bing</option>
+            <option value="google">Google</option>
+            <option value="custom">自定义</option>
+          </select>
+        </div><div class="pref-row" id="custom-engine-row">
+          <label class="pref-label" for="custom-engine-input">自定义搜索地址</label>
+          <input type="text" id="custom-engine-input" class="pref-input" placeholder="https://example.com/search?q=%s" aria-label="自定义搜索地址">
+        </div></div>
+  <div class="settings-card"><h5>快速对话</h5><label class="settings-field">
           <span>发送到</span>
           <select id="llm-provider" class="pref-select">
             <option value="deepseek">DeepSeek 网页（自动发送）</option>
@@ -306,8 +275,7 @@
             <option value="glm">智谱清言网页（自动发送）</option>
             <option value="api">自定义接口</option>
           </select>
-        </label>
-        <div id="llm-api-settings" class="settings-fields hidden">
+        </label><div id="llm-api-settings" class="settings-fields hidden">
           <label class="settings-field">
             <span>接口地址</span>
             <input id="llm-base-url" class="pref-input" type="url" placeholder="https://api.example.com/v1">
@@ -325,29 +293,14 @@
             <input id="llm-web-url" class="pref-input" type="url" placeholder="https://example.com/">
           </label>
           <p class="settings-note">支持兼容 OpenAI 对话接口的服务。密钥仅保存在浏览器本地。</p>
-        </div>
-        <p id="llm-web-note" class="settings-note">发送时会打开所选网站，并自动提交输入内容；需要先在该网站登录。</p>
-      </div>
-
-      <div class="prefs-section">
-        <h4 class="prefs-title">数据</h4>
-        <div class="data-actions">
-          <button id="settings-sync" class="secondary-btn" type="button" aria-pressed="false">开启浏览器同步</button>
-          <button id="settings-restore-snapshot" class="secondary-btn" type="button">恢复上一次变更</button>
-          <button id="settings-export" class="secondary-btn" type="button">导出设置</button>
-          <button id="settings-import" class="secondary-btn" type="button">导入设置</button>
-          <button id="settings-clear-cache" class="secondary-btn" type="button">清理缓存</button>
-          <input id="settings-import-file" type="file" hidden>
-        </div>
-        <p class="settings-note">同步只包含普通设置和快捷方式；密钥、壁纸和本地图标图片不会同步。快捷方式中的内网网址会随配置同步。</p>
-        <p id="data-status" class="data-status" role="status" aria-live="polite"></p>
-      </div>
-
-      <div class="modal-actions">
-        <button id="settings-done" type="button">完成</button>
-      </div>
+        </div><p id="llm-web-note" class="settings-note">发送时会打开所选网站，并自动提交输入内容；需要先在该网站登录。</p></div></section><section id="settings-panel-data" class="settings-panel hidden" role="tabpanel" aria-labelledby="settings-tab-data"><h4>数据管理</h4><p class="settings-description">备份、同步与恢复。这里的操作立即生效；如有未保存的修改，请先保存或取消。</p>
+  <div class="settings-card"><h5>浏览器同步</h5><button id="settings-sync" class="secondary-btn" type="button" aria-pressed="false">开启浏览器同步</button><p class="settings-note">同步普通设置和快捷方式（包含其中的内网网址）。密钥、自定义壁纸和本地图标图片不会同步。</p></div>
+  <div class="settings-card"><h5>备份与恢复</h5><div class="data-actions"><button id="settings-export" class="secondary-btn" type="button">导出设置</button><button id="settings-import" class="secondary-btn" type="button">导入设置</button><button id="settings-restore-snapshot" class="secondary-btn" type="button">恢复上一次变更</button><input id="settings-import-file" type="file" hidden=""></div><p class="settings-note">导入备份会替换当前配置；自动快照可以恢复最近一次快捷方式变更。</p></div>
+  <div class="settings-card"><h5>本地缓存</h5><button id="settings-clear-cache" class="secondary-btn" type="button">清理缓存</button><p class="settings-note">清理网站图标和每日壁纸缓存，保留你的配置。</p></div><p id="data-status" class="data-status" role="status" aria-live="polite"></p></section></div>
     </div>
+    <footer class="settings-footer"><p id="settings-save-status" role="status" aria-live="polite">修改后点击保存，取消不保留更改。</p><div class="settings-footer-actions"><button id="settings-cancel" class="secondary-btn" type="button">取消</button><button id="settings-done" type="button">保存并关闭</button></div></footer>
   </div>
+</div>
 
   <div id="shortcut-folder-modal" class="modal shortcut-folder-modal hidden" role="dialog" aria-modal="true" aria-label="快捷方式文件夹">
     <div id="shortcut-folder-window" class="modal-content shortcut-folder-window">

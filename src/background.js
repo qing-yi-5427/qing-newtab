@@ -23,10 +23,16 @@ function senderProvider(sender) {
 export async function handleMessage(message, sender) {
   if (message.type === 'save-settings') {
     if (!isExtensionPage(sender)) throw new Error('无权修改设置');
-    const current = (await chrome.storage.local.get('nt_settings')).nt_settings || {};
-    const settings = { ...current, ...message.patch };
-    await chrome.storage.local.set({ nt_settings: settings });
-    return { ok: true, settings };
+    const write = async () => {
+      const current = (await chrome.storage.local.get('nt_settings')).nt_settings || {};
+      const settings = { ...current, ...message.patch };
+      const values = { nt_settings: settings, nt_data_updated_at: Date.now() };
+      if (message.customWallpaper !== undefined) values.nt_custom_wallpaper = message.customWallpaper;
+      await chrome.storage.local.set(values);
+      return { ok: true, settings };
+    };
+    return typeof navigator !== 'undefined' && navigator.locks?.request
+      ? navigator.locks.request('nt-settings-write', write) : write();
   }
   if (message.type === 'open-web-chat') {
     if (!isExtensionPage(sender)) throw new Error('无权打开对话');
