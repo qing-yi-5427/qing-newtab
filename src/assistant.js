@@ -111,7 +111,7 @@ export function initAssistant() {
     option.addEventListener('click', async () => {
       const settings = await storage.getSettings();
       settings.llmProvider = option.dataset.provider;
-      await storage.saveSettings(settings);
+      await storage.saveSettings({ llmProvider: settings.llmProvider });
       closeProviderMenu();
       state.notifySettingsChanged(['llmProvider']);
       input.focus();
@@ -213,7 +213,7 @@ export function initAssistant() {
     submit();
   });
   input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
       event.preventDefault();
       submit();
     }

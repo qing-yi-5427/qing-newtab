@@ -52,6 +52,7 @@ export const DEFAULT_SETTINGS = {
   glassBlur: 10,
   shortcutColumns: 12,
   shortcutRows: 2,
+  shortcutGap: 16,
   shortcutIconSize: 48,
   bookmarkWidth: 100,
   bookmarkItemWidth: 240,

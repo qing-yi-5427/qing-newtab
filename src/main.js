@@ -46,6 +46,23 @@ async function main() {
   initContextMenu();
   if (settings.showBookmarks !== false) loadBookmarks();
 
+  // Reflect settings and shortcut changes from other new-tab pages.
+  if (typeof chrome !== 'undefined') chrome.storage?.onChanged?.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes[storage.KEYS.settings]) {
+      const change = changes[storage.KEYS.settings];
+      const next = change.newValue || {};
+      const keys = Object.keys({ ...change.oldValue, ...next })
+        .filter((key) => change.oldValue?.[key] !== next[key]);
+      if (keys.includes('theme')) applyTheme(next.theme);
+      state.notifySettingsChanged(keys);
+    }
+    if (changes[storage.KEYS.shortcuts]) {
+      document.dispatchEvent(new Event('shortcut-tree-changed'));
+      state.notifySettingsChanged();
+    }
+  });
+
   // Entrance stagger runs only on first paint (removed shortly after).
   document.body.classList.add('first-load');
   setTimeout(() => document.body.classList.remove('first-load'), 1200);

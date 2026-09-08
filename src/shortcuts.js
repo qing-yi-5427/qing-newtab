@@ -213,48 +213,52 @@ function shortcutColumnWidth() {
   return cell + gap;
 }
 
+/** Row-major pages, fixed spacing, and a centered incomplete final row. */
+export function shortcutGridLayout(count, columns, rows, cell, gap, availableWidth) {
+  const fitting = Math.max(1, Math.floor((availableWidth + gap) / (cell + gap)));
+  const visibleColumns = Math.max(1, Math.min(columns, fitting, count || 1));
+  const capacity = visibleColumns * rows;
+  const pages = Math.max(1, Math.ceil(count / capacity));
+  const width = visibleColumns * cell + (visibleColumns - 1) * gap;
+  const positions = Array.from({ length: count }, (_, index) => {
+    const page = Math.floor(index / capacity);
+    const withinPage = index % capacity;
+    const row = Math.floor(withinPage / visibleColumns);
+    const inRow = Math.min(visibleColumns, count - page * capacity - row * visibleColumns);
+    return {
+      column: page * visibleColumns + withinPage % visibleColumns + 1,
+      row: row + 1,
+      offset: (visibleColumns - inRow) * (cell + gap) / 2,
+    };
+  });
+  return { visibleColumns, pages, width, positions };
+}
+
 function syncShortcutOverflow() {
   if (!gridEl) return;
   const panel = gridEl.parentElement;
-  if (typeof getComputedStyle !== 'function') {
-    const overflowing = panel.scrollWidth > panel.clientWidth + 2;
-    panel.classList.toggle('has-overflow', overflowing);
-    panel.title = overflowing
-      ? `${layoutRows} 行显示，横向滚动查看更多快捷方式`
-      : '右键空白处添加快捷方式';
-    return;
-  }
-  const rootStyles = getComputedStyle(document.documentElement);
-  const panelStyles = getComputedStyle(panel);
-  const cell = Number.parseFloat(rootStyles.getPropertyValue('--cell')) || 88;
-  const gap = Number.parseFloat(rootStyles.getPropertyValue('--gap')) || 12;
-  const horizontalPadding = (Number.parseFloat(panelStyles.paddingLeft) || 0)
-    + (Number.parseFloat(panelStyles.paddingRight) || 0);
-  const contentWidth = Math.max(cell, panel.clientWidth - horizontalPadding);
-  const columns = Math.max(1, Math.ceil(gridEl.childElementCount / layoutRows));
-  const minimumGap = Math.min(gap, 8);
-  const physicallyVisible = Math.max(1, Math.floor((contentWidth + minimumGap) / (cell + minimumGap)));
-  const visibleColumns = Math.max(1, Math.min(layoutColumns, physicallyVisible));
-  const overflowing = columns > visibleColumns;
-
-  if (overflowing) {
-    const trackWidth = Math.max(cell, (contentWidth - minimumGap * Math.max(0, visibleColumns - 1)) / visibleColumns);
-    const gridWidth = columns * trackWidth + Math.max(0, columns - 1) * minimumGap;
-    gridEl.style.gridTemplateColumns = `repeat(${columns}, ${trackWidth}px)`;
-    gridEl.style.width = `${gridWidth}px`;
-    gridEl.style.minWidth = `${gridWidth}px`;
-    gridEl.style.setProperty('--shortcut-column-gap', `${minimumGap}px`);
-  } else {
-    gridEl.style.gridTemplateColumns = `repeat(${columns}, minmax(${cell}px, 1fr))`;
-    gridEl.style.width = '100%';
-    gridEl.style.minWidth = '100%';
-    gridEl.style.removeProperty('--shortcut-column-gap');
-  }
+  const cell = Number.parseFloat(document.documentElement.style.getPropertyValue('--cell')) || 86;
+  const gap = Number.parseFloat(gridEl.style.getPropertyValue('--shortcut-spacing')) || 0;
+  const desiredWidth = layoutColumns * cell + (layoutColumns - 1) * gap;
+  panel.style.maxWidth = `${desiredWidth + 4}px`;
+  const availableWidth = panel.clientWidth ? Math.max(cell, panel.clientWidth - 4) : desiredWidth;
+  const layout = shortcutGridLayout(gridEl.childElementCount, layoutColumns, layoutRows, cell, gap, availableWidth);
+  gridEl.style.setProperty('--shortcut-cols', String(layout.visibleColumns));
+  gridEl.style.gridTemplateColumns = `repeat(${layout.visibleColumns * layout.pages}, ${cell}px)`;
+  gridEl.style.width = `${layout.pages * layout.width + (layout.pages - 1) * gap}px`;
+  gridEl.style.minWidth = '0';
+  Array.from(gridEl.children).forEach((element, index) => {
+    const position = layout.positions[index];
+    element.style.gridColumn = String(position.column);
+    element.style.gridRow = String(position.row);
+    element.style.translate = `${position.offset}px 0`;
+  });
+  const overflowing = layout.pages > 1 || layout.width > availableWidth;
   const startedOverflowing = overflowing && !panel.classList.contains('has-overflow');
   panel.classList.toggle('has-overflow', overflowing);
   if (startedOverflowing) panel.scrollLeft = 0;
   panel.title = overflowing
-    ? `${layoutRows} 行显示，横向滚动查看更多快捷方式`
+    ? `每行 ${layout.visibleColumns} 个、每屏 ${layoutRows} 行，横向滚动查看更多快捷方式`
     : '右键空白处添加快捷方式';
 }
 
@@ -274,7 +278,7 @@ function scheduleShortcutOverflow() {
 function applyShortcutLayout(settings, resetScroll = false) {
   if (!gridEl) return;
   layoutRows = integerInRange(settings.shortcutRows, 1, 4, 2);
-  layoutColumns = integerInRange(settings.shortcutColumns, 4, 16, 12);
+  layoutColumns = integerInRange(settings.shortcutColumns, 1, 16, 12);
   const iconSize = integerInRange(
     settings.shortcutIconSize,
     SIZE_LIMITS.shortcutIconSize.min,
@@ -282,7 +286,8 @@ function applyShortcutLayout(settings, resetScroll = false) {
     48
   );
   const compact = settings.contentDensity === 'compact';
-  const rowGap = compact ? 9 : 13;
+  const rowGap = integerInRange(settings.shortcutGap, 0, 80, 16);
+  gridEl.style.setProperty('--shortcut-spacing', `${rowGap}px`);
   const rowHeight = Math.max(compact ? 72 : 82, iconSize + (compact ? 28 : 34));
   const root = document.documentElement;
   root.style.setProperty('--cell', `${Math.max(compact ? 76 : 86, iconSize + 20)}px`);
@@ -291,7 +296,7 @@ function applyShortcutLayout(settings, resetScroll = false) {
   gridEl.style.setProperty('--shortcut-rows', String(layoutRows));
   gridEl.style.setProperty('--shortcut-row-height', `${rowHeight}px`);
   gridEl.style.setProperty('--shortcut-grid-height', `${layoutRows * rowHeight + Math.max(0, layoutRows - 1) * rowGap}px`);
-  gridEl.style.setProperty('--shortcut-cols', String(Math.max(1, Math.ceil(gridEl.childElementCount / layoutRows))));
+  gridEl.style.setProperty('--shortcut-cols', String(Math.max(1, Math.min(layoutColumns, gridEl.childElementCount))));
   if (resetScroll) gridEl.parentElement.scrollLeft = 0;
   scheduleShortcutOverflow();
 }
@@ -858,7 +863,7 @@ export function initShortcuts() {
     const openers = Array.from(gridEl.querySelectorAll('.shortcut-open'));
     const current = openers.indexOf(event.target.closest('.shortcut-open'));
     if (current < 0 || !openers.length) return;
-    const columns = Math.max(1, Math.ceil(openers.length / layoutRows));
+    const columns = Number(gridEl.style.getPropertyValue('--shortcut-cols')) || layoutColumns;
     const row = Math.floor(current / columns);
     const column = current % columns;
     const lastRow = Math.floor((openers.length - 1) / columns);
@@ -919,7 +924,7 @@ export function initShortcuts() {
       return;
     }
     if (changedKeys.some((key) => [
-      'shortcutRows', 'shortcutColumns', 'shortcutIconSize', 'contentDensity',
+      'shortcutRows', 'shortcutColumns', 'shortcutGap', 'shortcutIconSize', 'contentDensity',
     ].includes(key))) {
       applyShortcutLayout(await storage.getSettings(), true);
     }

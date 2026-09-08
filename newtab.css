@@ -1440,3 +1440,13 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 @media (prefers-reduced-motion: reduce) {
   .shortcut-managing .shortcut-item.management-target .shortcut-open { animation: none; }
 }
+
+/* User-defined spacing applies equally to both axes; never stretch tracks. */
+#tab-shortcuts { margin-inline: auto; }
+#shortcuts-grid,
+:root[data-density="compact"] #shortcuts-grid {
+  gap: var(--shortcut-spacing, 16px);
+  margin-inline: auto;
+}
+#tab-shortcuts.has-overflow #shortcuts-grid { margin-inline: 0; }
+.shortcut-layout-controls { flex-wrap: wrap; }

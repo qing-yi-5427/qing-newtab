@@ -197,7 +197,7 @@ export function initSearch(initialSettings = DEFAULT_SETTINGS) {
         const engine = opt.dataset.engine;
         const settings = await storage.getSettings();
         settings.searchEngine = engine;
-        await storage.saveSettings(settings);
+        await storage.saveSettings({ searchEngine: engine });
         activeSettings = settings;
         menu.classList.add('hidden');
         btn.setAttribute('aria-expanded', 'false');

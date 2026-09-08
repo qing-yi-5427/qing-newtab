@@ -88,7 +88,7 @@ test('right-click edits a shortcut and right-clicking empty space adds one', asy
     const grid = document.getElementById('shortcuts-grid');
     assert.equal(grid.querySelectorAll('.shortcut-item').length, 3);
     assert.equal(grid.style.getPropertyValue('--shortcut-rows'), '3');
-    assert.equal(grid.style.getPropertyValue('--shortcut-cols'), '1');
+    assert.equal(grid.style.getPropertyValue('--shortcut-cols'), '3');
     assert.equal(document.documentElement.style.getPropertyValue('--shortcut-icon-size'), '60px');
     assert.equal(grid.style.getPropertyValue('--shortcut-row-height'), '94px');
     assert.equal(document.getElementById('add-shortcut'), null);

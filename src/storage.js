@@ -187,18 +187,24 @@ export async function getShortcutSnapshotCount() {
 
 /** @returns {Promise<object>} merged with defaults */
 export async function getSettings() {
-  if (settingsCache) return { ...settingsCache };
   const s = await rawGet(KEYS.settings, {});
   settingsCache = { ...DEFAULT_SETTINGS, ...s };
   return { ...settingsCache };
 }
 
-/** @param {object} s */
-export async function saveSettings(s) {
-  settingsCache = { ...DEFAULT_SETTINGS, ...s };
-  await rawSet(KEYS.settings, settingsCache);
+/** Merge only the supplied changed fields into the latest stored settings. */
+export async function saveSettings(patch) {
+  if (hasChrome && chrome.runtime?.sendMessage) {
+    const result = await chrome.runtime.sendMessage({ type: 'save-settings', patch });
+    if (!result?.ok) throw new Error(result?.error || '设置保存失败');
+    settingsCache = { ...DEFAULT_SETTINGS, ...result.settings };
+  } else {
+    settingsCache = { ...(await getSettings()), ...patch };
+    await rawSet(KEYS.settings, settingsCache);
+  }
   await markDataUpdated();
   scheduleSyncWrite();
+  return { ...settingsCache };
 }
 
 function syncedSettings(settings) {

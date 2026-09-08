@@ -111,6 +111,7 @@ export function initSettings() {
   const glassBlur = document.getElementById('glass-blur');
   const shortcutColumns = document.getElementById('shortcut-columns');
   const shortcutRows = document.getElementById('shortcut-rows');
+  const shortcutGap = document.getElementById('shortcut-gap');
   const shortcutIconSize = document.getElementById('shortcut-icon-size');
   const bookmarkWidth = document.getElementById('bookmark-width');
   const bookmarkItemWidth = document.getElementById('bookmark-item-width');
@@ -160,20 +161,22 @@ export function initSettings() {
   }
   openSettingsDialog = open;
   async function close() {
-    const customTemplate = customInput.value.trim();
-    const settings = await storage.getSettings();
-    if (isValidSearchTemplate(customTemplate)) settings.customEngineUrl = customTemplate;
-    const baseUrl = llmBaseUrl.value.trim();
-    const webUrl = llmWebUrl.value.trim();
-    if (!baseUrl || isValidHttpUrl(baseUrl)) settings.llmBaseUrl = baseUrl;
-    if (!webUrl || isValidHttpUrl(webUrl)) settings.llmWebUrl = webUrl;
-    settings.llmProvider = llmProvider.value;
-    settings.llmApiKey = llmApiKey.value.trim();
-    settings.llmModel = llmModel.value.trim();
-    await storage.saveSettings(settings);
-    state.notifySettingsChanged([
-      'customEngineUrl', 'llmProvider', 'llmBaseUrl', 'llmApiKey', 'llmModel', 'llmWebUrl',
-    ]);
+    const patch = {};
+    for (const [control, key, valid] of [
+      [customInput, 'customEngineUrl', isValidSearchTemplate],
+      [llmBaseUrl, 'llmBaseUrl', (value) => !value || isValidHttpUrl(value)],
+      [llmWebUrl, 'llmWebUrl', (value) => !value || isValidHttpUrl(value)],
+      [llmApiKey, 'llmApiKey', () => true],
+      [llmModel, 'llmModel', () => true],
+    ]) {
+      const value = control.value.trim();
+      if (value !== control.dataset.savedValue && valid(value)) patch[key] = value;
+    }
+    await preferenceSaveQueue;
+    if (Object.keys(patch).length) {
+      await storage.saveSettings(patch);
+      state.notifySettingsChanged(Object.keys(patch));
+    }
     modal.classList.add('hidden');
     if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
   }
@@ -190,7 +193,7 @@ export function initSettings() {
       const mode = b.dataset.themeMode;
       const s = await storage.getSettings();
       s.theme = mode;
-      await storage.saveSettings(s);
+      await storage.saveSettings({ theme: mode });
       applyTheme(mode);
       syncControls(s);
       state.notifySettingsChanged(['theme']);
@@ -199,9 +202,7 @@ export function initSettings() {
 
   function savePreference(patch) {
     const save = async () => {
-      const s = await storage.getSettings();
-      const next = { ...s, ...patch };
-      await storage.saveSettings(next);
+      const next = await storage.saveSettings(patch);
       syncControls(next);
       state.notifySettingsChanged(Object.keys(patch));
     };
@@ -255,6 +256,7 @@ export function initSettings() {
     savePreference({ shortcutRows: Number(shortcutRows.value) });
   });
   [
+    [shortcutGap, 'shortcutGap', (value) => `${value}px`],
     [shortcutIconSize, 'shortcutIconSize', (value) => value],
     [bookmarkWidth, 'bookmarkWidth', (value) => `${value}%`],
     [bookmarkItemWidth, 'bookmarkItemWidth', (value) => value],
@@ -282,7 +284,7 @@ export function initSettings() {
   engSel.addEventListener('change', async () => {
     const s = await storage.getSettings();
     s.searchEngine = engSel.value;
-    await storage.saveSettings(s);
+    await storage.saveSettings({ searchEngine: s.searchEngine });
     syncControls(s);
     state.notifySettingsChanged(['searchEngine']);
   });
@@ -296,7 +298,7 @@ export function initSettings() {
     customInput.setCustomValidity('');
     const s = await storage.getSettings();
     s.customEngineUrl = value;
-    await storage.saveSettings(s);
+    await storage.saveSettings({ customEngineUrl: value });
   });
 
   [llmBaseUrl, llmApiKey, llmModel, llmWebUrl].forEach((control) => {
@@ -319,7 +321,8 @@ export function initSettings() {
       }
       llmBaseUrl.setCustomValidity('');
       llmWebUrl.setCustomValidity('');
-      await savePreference(values);
+      const key = { 'llm-base-url': 'llmBaseUrl', 'llm-api-key': 'llmApiKey', 'llm-model': 'llmModel', 'llm-web-url': 'llmWebUrl' }[control.id];
+      await savePreference({ [key]: values[key] });
     });
   });
   llmProvider.addEventListener('change', () => {
@@ -381,11 +384,12 @@ export function initSettings() {
         wallpaperDim: numberInRange(incoming.wallpaperDim, 0, 75, current.wallpaperDim),
         glassBlur: numberInRange(incoming.glassBlur, 0, 30, current.glassBlur),
         shortcutColumns: Math.round(numberInRange(
-          incoming.shortcutColumns, 4, 16, current.shortcutColumns
+          incoming.shortcutColumns, 1, 16, current.shortcutColumns
         )),
         shortcutRows: Math.round(numberInRange(
           incoming.shortcutRows, 1, 4, current.shortcutRows
         )),
+        shortcutGap: Math.round(numberInRange(incoming.shortcutGap, 0, 80, current.shortcutGap)),
         shortcutIconSize: Math.round(numberInRange(
           incoming.shortcutIconSize,
           SIZE_LIMITS.shortcutIconSize.min,
@@ -502,7 +506,7 @@ export function initSettings() {
       const mode = b.dataset.iconMode;
       const s = await storage.getSettings();
       s.iconMode = mode;
-      await storage.saveSettings(s);
+      await storage.saveSettings({ iconMode: mode });
       syncControls(s);
       state.notifySettingsChanged(['iconMode']);
     });
@@ -523,6 +527,8 @@ export function initSettings() {
     glassBlur.value = String(s.glassBlur);
     shortcutColumns.value = String(s.shortcutColumns);
     shortcutRows.value = String(s.shortcutRows);
+    shortcutGap.value = String(s.shortcutGap);
+    document.getElementById('shortcut-gap-value').textContent = `${s.shortcutGap}px`;
     shortcutIconSize.value = String(s.shortcutIconSize);
     bookmarkWidth.value = String(s.bookmarkWidth);
     bookmarkItemWidth.value = String(s.bookmarkItemWidth);
@@ -553,6 +559,9 @@ export function initSettings() {
     llmApiKey.value = s.llmApiKey || '';
     llmModel.value = s.llmModel || '';
     llmWebUrl.value = s.llmWebUrl || '';
+    [customInput, llmBaseUrl, llmWebUrl, llmApiKey, llmModel].forEach((control) => {
+      control.dataset.savedValue = control.value.trim();
+    });
     modal.querySelectorAll(ICON_BTNS).forEach((b) => {
       const on = b.dataset.iconMode === s.iconMode;
       b.setAttribute('aria-checked', on ? 'true' : 'false');

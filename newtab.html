@@ -212,8 +212,11 @@
         <div class="pref-row">
           <span class="pref-label">快捷方式布局</span>
           <div class="shortcut-layout-controls">
-            <label>列数
-              <select id="shortcut-columns" class="pref-select compact-select" aria-label="快捷方式列数">
+            <label>每行图标数
+              <select id="shortcut-columns" class="pref-select compact-select" aria-label="每行图标数">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
                 <option value="4">4</option>
                 <option value="5">5</option>
                 <option value="6">6</option>
@@ -229,7 +232,7 @@
                 <option value="16">16</option>
               </select>
             </label>
-            <label>行数
+            <label>每屏行数
               <select id="shortcut-rows" class="pref-select compact-select" aria-label="快捷方式行数">
                 <option value="1">1</option>
                 <option value="2" selected>2</option>
@@ -239,6 +242,12 @@
             </label>
           </div>
         </div>
+
+        <label class="pref-row range-row" for="shortcut-gap">
+          <span class="pref-label">图标间距 <output id="shortcut-gap-value">16px</output></span>
+          <input id="shortcut-gap" type="range" min="0" max="80" step="2">
+        </label>
+        <p class="pref-hint">图标居中排列，超出每屏数量时横向滚动；窗口较窄时自动减少每行数量。</p>
 
         <label class="pref-row range-row" for="shortcut-icon-size">
           <span class="pref-label">图标大小 <output id="shortcut-icon-size-value">48</output></span>

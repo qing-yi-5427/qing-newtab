@@ -15,6 +15,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 await Promise.all([
   build({
+    entryPoints: [path.join(__dirname, 'src', 'background.js')],
+    bundle: true, minify: true, format: 'esm', target: ['chrome100'],
+    outfile: path.join(__dirname, 'background.js'), logLevel: 'info',
+  }),
+  build({
     entryPoints: [path.join(__dirname, 'src', 'main.js')],
     bundle: true,
     minify: true,
@@ -34,4 +39,4 @@ await Promise.all([
   }),
 ]);
 
-console.log('Build complete → newtab.js, web-chat-bridge.js');
+console.log('Build complete → newtab.js, web-chat-bridge.js, background.js');

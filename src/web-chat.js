@@ -12,16 +12,14 @@ export function webChatProvider(key) {
   return WEB_CHAT_PROVIDERS[key] || WEB_CHAT_PROVIDERS.deepseek;
 }
 
+export const pendingPromptKey = (tabId) => `${PENDING_WEB_PROMPT_KEY}_${tabId}`;
+
 export async function openWebChat(providerKey, prompt) {
-  const provider = webChatProvider(providerKey);
-  const pending = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    provider: providerKey in WEB_CHAT_PROVIDERS ? providerKey : 'deepseek',
-    prompt: String(prompt || '').trim(),
-    createdAt: Date.now(),
-  };
-  if (!pending.prompt) return false;
-  await chrome.storage.local.set({ [PENDING_WEB_PROMPT_KEY]: pending });
-  window.open(provider.url, '_blank', 'noopener');
+  const text = String(prompt || '').trim();
+  if (!text) return false;
+  const result = await chrome.runtime.sendMessage({
+    type: 'open-web-chat', provider: providerKey, prompt: text,
+  });
+  if (!result?.ok) throw new Error(result?.error || '无法打开对话');
   return true;
 }

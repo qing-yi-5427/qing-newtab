@@ -42,11 +42,17 @@
         "https://chatglm.cn/*",
         "https://*.chatglm.cn/*"
       ],
-      "js": ["web-chat-bridge.js"],
+      "js": [
+        "web-chat-bridge.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   }
 }

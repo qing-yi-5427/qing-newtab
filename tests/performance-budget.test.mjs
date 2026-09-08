@@ -13,7 +13,10 @@ test('new-tab runtime stays within the lightweight asset budget', async () => {
 
   assert.ok(script.size < 100 * 1024, `newtab.js is ${script.size} bytes`);
   assert.ok(styles.size < 70 * 1024, `newtab.css is ${styles.size} bytes`);
-  assert.equal(manifest.background, undefined, 'new tab should not keep a background worker alive');
+  assert.equal(manifest.background.service_worker, 'background.js');
+  const worker = await readFile(new URL('background.js', root), 'utf8');
+  assert.ok(Buffer.byteLength(worker) < 8 * 1024, 'event-driven worker stays small');
+  assert.doesNotMatch(worker, /setInterval|setTimeout/, 'worker has no keep-alive polling');
 });
 
 test('extension runtime has no application framework dependency', async () => {

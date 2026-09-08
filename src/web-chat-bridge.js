@@ -1,6 +1,6 @@
 /** Runs inside supported AI websites and submits one queued prompt. */
 
-import { PENDING_WEB_PROMPT_KEY, WEB_CHAT_PROVIDERS } from './web-chat.js';
+import { WEB_CHAT_PROVIDERS } from './web-chat.js';
 
 const MAX_PENDING_AGE = 30 * 60 * 1000;
 const COMPOSER_SELECTORS = [
@@ -14,7 +14,7 @@ function isVisible(element) {
   if (!(element instanceof HTMLElement)) return false;
   const rect = element.getBoundingClientRect();
   const style = getComputedStyle(element);
-  return rect.width > 80 && rect.height > 20 && style.display !== 'none' && style.visibility !== 'hidden';
+  return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
 }
 
 function providerForHost(hostname) {
@@ -28,7 +28,8 @@ function providerForHost(hostname) {
 
 export function findComposer(root = document) {
   for (const selector of COMPOSER_SELECTORS) {
-    const candidates = [...root.querySelectorAll(selector)].filter(isVisible);
+    const candidates = [...root.querySelectorAll(selector)].filter((element) => isVisible(element)
+      && element.getBoundingClientRect().width > 80 && element.getBoundingClientRect().height > 20);
     if (candidates.length) return candidates.at(-1);
   }
   return null;
@@ -72,7 +73,7 @@ export function findSendButton(composer) {
   ];
   for (let node = composer.parentElement, depth = 0; node && depth < 7; node = node.parentElement, depth += 1) {
     for (const selector of labelled) {
-      const candidate = [...node.querySelectorAll(selector)].filter(isVisible).at(-1);
+      const candidate = [...node.querySelectorAll(selector)].filter((element) => isVisible(element) && element.getAttribute('aria-disabled') !== 'true').at(-1);
       if (candidate) return candidate;
     }
   }
@@ -81,7 +82,7 @@ export function findSendButton(composer) {
   let scope = composer.parentElement;
   for (let depth = 0; scope && depth < 6; scope = scope.parentElement, depth += 1) {
     const candidates = [...scope.querySelectorAll('button:not([disabled]),[role="button"]')]
-      .filter(isVisible)
+      .filter((element) => isVisible(element) && element.getAttribute('aria-disabled') !== 'true')
       .map((button) => ({ button, rect: button.getBoundingClientRect() }))
       .filter(({ rect }) => (
         rect.left >= inputRect.left + inputRect.width * 0.55
@@ -121,25 +122,44 @@ function waitForComposer(timeout = MAX_PENDING_AGE) {
   });
 }
 
-async function deliverPendingPrompt() {
+function composerText(composer) {
+  return String(composer.value ?? composer.textContent ?? '').trim();
+}
+
+export async function deliverPendingPrompt() {
   const provider = providerForHost(location.hostname);
   if (!provider || !WEB_CHAT_PROVIDERS[provider]) return;
-  const stored = await chrome.storage.local.get(PENDING_WEB_PROMPT_KEY);
-  const pending = stored[PENDING_WEB_PROMPT_KEY];
+  const { pending } = await chrome.runtime.sendMessage({ type: 'peek-web-prompt' });
   if (!pending || pending.provider !== provider) return;
-  if (!pending.prompt || Date.now() - Number(pending.createdAt || 0) > MAX_PENDING_AGE) {
-    await chrome.storage.local.remove(PENDING_WEB_PROMPT_KEY);
-    return;
-  }
-
-  const composer = await waitForComposer();
-  if (!composer) return;
+  const remaining = MAX_PENDING_AGE - (Date.now() - Number(pending.createdAt || 0));
+  if (remaining <= 0) return;
+  const composer = await waitForComposer(remaining);
+  // Never replace a draft the user already started on the destination page.
+  if (!composer || composerText(composer)) return;
+  const claim = await chrome.runtime.sendMessage({ type: 'claim-web-prompt', id: pending.id });
+  if (!claim?.pending) return;
   setComposerValue(composer, pending.prompt);
   await new Promise((resolve) => setTimeout(resolve, 450));
   const sendButton = findSendButton(composer);
-  await chrome.storage.local.remove(PENDING_WEB_PROMPT_KEY);
   if (sendButton) sendButton.click();
   else pressEnter(composer);
+  // A click/keydown alone is not acknowledgement. Keep the record on failure,
+  // but do not auto-retry a claimed message after navigation (duplicate sends).
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (composer.isConnected && !composerText(composer)) {
+      await chrome.runtime.sendMessage({ type: 'complete-web-prompt', id: pending.id });
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (composer.isConnected && composerText(composer) === pending.prompt) {
+    const notice = document.createElement('p');
+    notice.textContent = '消息已填入，请点击发送按钮完成发送。';
+    notice.setAttribute('role', 'status');
+    composer.parentElement.appendChild(notice);
+  }
 }
 
-if (typeof chrome !== 'undefined' && chrome.storage?.local) deliverPendingPrompt();
+if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+  void deliverPendingPrompt().catch(() => {});
+}
