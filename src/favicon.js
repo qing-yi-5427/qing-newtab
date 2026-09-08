@@ -109,13 +109,18 @@ function publicParentHost(hostname) {
 export function letterAvatarSVG(name, size = 40) {
   const ch = (name || '?').trim().charAt(0).toUpperCase() || '?';
   const color = colorFor(name || 'x');
-  const fontSize = Math.round(size * 0.5);
+  // Font units belong to the fixed 40x40 viewBox, not the rendered pixel size.
+  // Deriving this value from `size` made 18 px bookmark avatars use a tiny
+  // 9-unit glyph (about 4 px after viewBox scaling), while large shortcut
+  // avatars could overflow. A fixed viewBox-relative size keeps every avatar
+  // readable and proportional at all configured UI scales.
+  const fontSize = 22;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
     `viewBox="0 0 40 40" role="img" aria-hidden="true">` +
     `<rect width="40" height="40" rx="8" fill="${color}"/>` +
     `<text x="20" y="21" font-family="-apple-system,Segoe UI,Roboto,Arial,sans-serif" ` +
-    `font-size="${fontSize}" font-weight="600" fill="#ffffff" text-anchor="middle" ` +
+    `font-size="${fontSize}" font-weight="700" fill="#ffffff" text-anchor="middle" ` +
     `dominant-baseline="central">${escapeHtml(ch)}</text></svg>`
   );
 }

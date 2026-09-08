@@ -85,6 +85,14 @@ test('letterAvatarSVG honours the size argument', () => {
   assert.ok(svg.includes('viewBox="0 0 40 40"')); // viewBox stays fixed at 40
 });
 
+test('letterAvatarSVG keeps the glyph readable at bookmark and shortcut sizes', () => {
+  const bookmarkSvg = letterAvatarSVG('书签', 18);
+  const shortcutSvg = letterAvatarSVG('书签', 80);
+  assert.ok(bookmarkSvg.includes('font-size="22"'));
+  assert.ok(bookmarkSvg.includes('font-weight="700"'));
+  assert.ok(shortcutSvg.includes('font-size="22"'));
+});
+
 test('colorFor is a deterministic hash (same input → identical colour)', () => {
   const a = colorFor('github.com');
   const b = colorFor('github.com');
