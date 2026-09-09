@@ -45,6 +45,51 @@ try {
     return { gap: getComputedStyle(grid).columnGap, rowGap: getComputedStyle(grid).rowGap, items };
   });
   await open();
+  // Drag in a real new-tab document: preview changes must precede Save.
+  const originalY = (await page.locator('.shortcut-item').first().boundingBox()).y;
+  await page.locator('#shortcut-top').press('End');
+  await page.waitForFunction(() => getComputedStyle(document.getElementById('shortcuts-section')).marginTop === '400px');
+  const shiftedY = (await page.locator('.shortcut-item').first().boundingBox()).y;
+  assert.ok(Math.abs(shiftedY - originalY - 377) < 2);
+  assert.equal((await saved()).shortcutTop, undefined, 'preview must not persist');
+  await page.locator('#shortcut-gap').scrollIntoViewIfNeeded();
+  const gapBox = await page.locator('#shortcut-gap').boundingBox();
+  await page.mouse.move(gapBox.x + gapBox.width * .3, gapBox.y + gapBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(gapBox.x + gapBox.width - 2, gapBox.y + gapBox.height / 2, { steps: 12 });
+  await page.waitForFunction(() => getComputedStyle(document.getElementById('shortcuts-grid')).columnGap === '80px');
+  assert.equal(await page.locator('#settings-modal').evaluate(el => el.classList.contains('previewing')), true);
+  assert.equal((await saved()).shortcutGap, 16);
+  await page.screenshot({ animations: 'disabled', path: path.join(artifacts, 'live-drag.png') });
+  await page.mouse.up();
+  assert.equal(await page.locator('#settings-modal').evaluate(el => el.classList.contains('previewing')), false);
+  await page.locator('#settings-tab-appearance').click();
+  await page.locator('#wallpaper-blur').press('End');
+  await page.locator('#wallpaper-dim').press('End');
+  await page.locator('#glass-blur').press('End');
+  await page.waitForFunction(() => document.getElementById('wallpaper').style.filter.includes('20px')
+    && document.documentElement.style.getPropertyValue('--wallpaper-dim') === '0.75'
+    && document.documentElement.style.getPropertyValue('--panel-strength') === '0.3');
+  await page.locator('#settings-tab-home').click();
+  await page.locator('#bookmark-width').press('Home');
+  await page.locator('#bookmark-item-width').press('Home');
+  await page.locator('#bookmark-scale').press('End');
+  await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--bookmark-width') === '20vw'
+    && document.documentElement.style.getPropertyValue('--bookmark-item-width') === '80px'
+    && document.documentElement.style.getPropertyValue('--bookmark-scale') === '2');
+  await page.locator('#settings-cancel').click();
+  await page.waitForFunction(() => getComputedStyle(document.getElementById('shortcuts-section')).marginTop === '23px'
+    && getComputedStyle(document.getElementById('shortcuts-grid')).columnGap === '16px'
+    && document.documentElement.style.getPropertyValue('--bookmark-scale') === '1'
+    && document.getElementById('wallpaper').style.filter === 'none');
+  await open();
+  await page.locator('#shortcut-top').press('Home');
+  await page.locator('#shortcut-top').press('ArrowRight');
+  await page.locator('#settings-done').click();
+  await page.locator('#settings-modal').waitFor({ state: 'hidden' });
+  await page.reload(); await open();
+  assert.equal(await page.locator('#shortcut-top').inputValue(), '1');
+  assert.equal((await saved()).shortcutTop, 1);
   // Disable the runtime message channel: ordinary settings must still save.
   await page.evaluate(() => { chrome.runtime.sendMessage = () => Promise.reject(new Error('worker unavailable')); });
   await page.locator('#shortcut-gap').focus();
@@ -146,7 +191,7 @@ try {
   await page.locator('#settings-modal').press('Escape');
   await page.locator('#settings-modal').waitFor({ state: 'hidden' });
   assert.deepEqual(errors, []);
-  console.log(`PASS: real Edge settings save/cancel/retry, exact gaps, centering, persistence, validation, cross-tab edits, missing worker and narrow-screen actions. Screenshots: ${artifacts}`);
+  console.log(`PASS: real Edge settings save/cancel/retry, exact gaps, centering, persistence, validation, cross-tab edits, missing worker, live slider previews, vertical positioning, cancellation rollback and narrow-screen actions. Screenshots: ${artifacts}`);
 } finally {
   if (context) await context.close();
   await rm(profile, { recursive: true, force: true });

@@ -1538,3 +1538,11 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 }
 .settings-modal { background: var(--settings-surface); }
 .shortcut-preview { overflow: hidden; }
+
+/* Keep the whole shortcut region centered while changing its top spacing. */
+#home-dashboard #shortcuts-section,
+#home-dashboard.bookmarks-first #shortcuts-section { margin-top: var(--shortcut-top, 23px); }
+#settings-modal.previewing { background: rgba(0, 0, 0, .08); }
+#settings-modal.previewing .settings-modal { opacity: .18; }
+.settings-modal { transition: opacity 120ms ease; }
+@media (prefers-reduced-motion: reduce) { .settings-modal { transition: none; } }

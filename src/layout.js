@@ -68,6 +68,6 @@ export function initHomeLayout(initialSettings) {
   applyHomeLayout(initialSettings);
   state.subscribe(async (changedKeys) => {
     if (changedKeys && !changedKeys.some((key) => LAYOUT_KEYS.includes(key))) return;
-    applyHomeLayout(await storage.getSettings());
+    applyHomeLayout(await state.getDisplaySettings());
   });
 }

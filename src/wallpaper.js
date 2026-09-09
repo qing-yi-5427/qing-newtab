@@ -26,9 +26,8 @@ function applyEffects(settings) {
   const blur = Math.max(0, Math.min(20, Number(settings.wallpaperBlur) || 0));
   const dim = Math.max(0, Math.min(75, Number(settings.wallpaperDim) || 0));
   const panelStrength = Math.max(0, Math.min(30, Number(settings.glassBlur) || 0));
-  wallpaperEl.style.filter = blur > 0
-    ? `blur(${blur}px) scale(${1 + blur / 300})`
-    : 'none';
+  wallpaperEl.style.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+  wallpaperEl.style.transform = blur > 0 ? `scale(${1 + blur / 300})` : 'none';
   // CSS chooses a dark or light overlay from the active theme. Keeping only
   // the opacity here avoids darkening a light theme underneath dark text.
   document.documentElement.style.setProperty('--wallpaper-dim', String(dim / 100));
@@ -57,7 +56,7 @@ async function fetchBing() {
 async function refresh() {
   if (!wallpaperEl || !overlayEl) return;
   const version = ++refreshVersion;
-  const settings = await storage.getSettings();
+  const settings = await state.getDisplaySettings();
   applyEffects(settings);
 
   const source = settings.wallpaperSource || (settings.wallpaperEnabled ? 'bing' : 'gradient');
@@ -90,6 +89,11 @@ export function initWallpaper() {
   refresh();
   state.subscribe((changedKeys) => {
     const wallpaperKeys = ['wallpaperSource', 'wallpaperBlur', 'wallpaperDim', 'glassBlur', 'customWallpaper'];
-    if (!changedKeys || changedKeys.some((key) => wallpaperKeys.includes(key))) refresh();
+    if (!changedKeys || changedKeys.some((key) => ['wallpaperSource', 'customWallpaper'].includes(key))) {
+      refresh();
+    } else if (changedKeys.some((key) => wallpaperKeys.includes(key))) {
+      // Effect sliders do not need to fetch or decode the wallpaper again.
+      void state.getDisplaySettings().then(applyEffects);
+    }
   });
 }

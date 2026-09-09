@@ -290,6 +290,7 @@ function applyShortcutLayout(settings, resetScroll = false) {
   gridEl.style.setProperty('--shortcut-spacing', `${rowGap}px`);
   const rowHeight = Math.max(compact ? 72 : 82, iconSize + (compact ? 28 : 34));
   const root = document.documentElement;
+  root.style.setProperty('--shortcut-top', `${integerInRange(settings.shortcutTop, 0, 400, 23)}px`);
   root.style.setProperty('--cell', `${Math.max(compact ? 76 : 86, iconSize + 20)}px`);
   root.style.setProperty('--shortcut-icon-size', `${iconSize}px`);
   root.style.setProperty('--shortcut-folder-cell-size', `${Math.max(13, Math.round((iconSize - 14) / 2))}px`);
@@ -316,7 +317,7 @@ export function normalizeShortcutUrl(value) {
 async function renderIcon(container, shortcut, iconMode = null, cachedSources = null) {
   container.innerHTML = '';
   const renderAutomaticIcon = async () => {
-    const mode = iconMode || (await storage.getSettings()).iconMode;
+    const mode = iconMode || (await state.getDisplaySettings()).iconMode;
     const host = hostFromUrl(shortcut.url);
     const cachedUrl = cachedSources
       ? cachedSources[host]
@@ -436,7 +437,7 @@ function createShortcutElement(item, path, iconMode, cachedSources, insideFolder
 
 export async function renderShortcuts() {
   if (!gridEl) return;
-  const [shortcuts, settings] = await Promise.all([storage.getShortcuts(), storage.getSettings()]);
+  const [shortcuts, settings] = await Promise.all([storage.getShortcuts(), state.getDisplaySettings()]);
   const urls = shortcuts.flatMap((item) => (
     isShortcutFolder(item) ? item.children.map((child) => child.url) : [item.url]
   ));
@@ -758,7 +759,7 @@ async function saveFolderName() {
 }
 
 async function renderOpenFolder() {
-  const [list, settings] = await Promise.all([storage.getShortcuts(), storage.getSettings()]);
+  const [list, settings] = await Promise.all([storage.getShortcuts(), state.getDisplaySettings()]);
   const folder = list[openedFolderIndex];
   if (!isShortcutFolder(folder)) {
     closeShortcutFolder();
@@ -924,9 +925,9 @@ export function initShortcuts() {
       return;
     }
     if (changedKeys.some((key) => [
-      'shortcutRows', 'shortcutColumns', 'shortcutGap', 'shortcutIconSize', 'contentDensity',
+      'shortcutRows', 'shortcutColumns', 'shortcutGap', 'shortcutTop', 'shortcutIconSize', 'contentDensity',
     ].includes(key))) {
-      applyShortcutLayout(await storage.getSettings(), true);
+      applyShortcutLayout(await state.getDisplaySettings(), true);
     }
   });
 }

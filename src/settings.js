@@ -109,6 +109,7 @@ export function initSettings() {
   const glassBlur = document.getElementById('glass-blur');
   const shortcutColumns = document.getElementById('shortcut-columns');
   const shortcutRows = document.getElementById('shortcut-rows');
+  const shortcutTop = document.getElementById('shortcut-top');
   const shortcutGap = document.getElementById('shortcut-gap');
   const shortcutIconSize = document.getElementById('shortcut-icon-size');
   const bookmarkWidth = document.getElementById('bookmark-width');
@@ -150,7 +151,7 @@ export function initSettings() {
   const numericFields = [
     [wallpaperBlur, 'wallpaperBlur', ''], [wallpaperDim, 'wallpaperDim', '%'],
     [glassBlur, 'glassBlur', ''], [shortcutColumns, 'shortcutColumns', ''],
-    [shortcutRows, 'shortcutRows', ''], [shortcutGap, 'shortcutGap', 'px'],
+    [shortcutRows, 'shortcutRows', ''], [shortcutTop, 'shortcutTop', 'px'], [shortcutGap, 'shortcutGap', 'px'],
     [shortcutIconSize, 'shortcutIconSize', 'px'], [bookmarkWidth, 'bookmarkWidth', '%'],
     [bookmarkItemWidth, 'bookmarkItemWidth', 'px'], [bookmarkScale, 'bookmarkScale', '%'],
   ];
@@ -225,7 +226,11 @@ export function initSettings() {
       button.classList.toggle('active', active); button.setAttribute('aria-checked', String(active));
     });
     renderPreview(draft);
-    if (!busy) setSaveStatus(hasChanges() ? '有未保存的修改，保存后应用到首页。' : '修改后点击保存，取消不保留更改。');
+    // Only numeric layout/effect controls are previewed; never expose draft API fields.
+    const numericKeys = new Set(numericFields.map(([, key]) => key));
+    state.previewSettings(Object.fromEntries(Object.entries(changedFields())
+      .filter(([key]) => numericKeys.has(key))));
+    if (!busy) setSaveStatus(hasChanges() ? '正在实时预览，保存以保留修改，取消可恢复。' : '修改后点击保存，取消不保留更改。');
   }
   function renderPreview(draft = values()) {
     preview.replaceChildren();
@@ -289,6 +294,8 @@ export function initSettings() {
   function close() {
     if (busy || imageLoading) return;
     modal.classList.add('hidden');
+    modal.classList.remove('previewing');
+    state.previewSettings();
     baseline = null;
     wallpaperDraft = undefined;
     if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
@@ -342,6 +349,25 @@ export function initSettings() {
     });
     control.addEventListener('change', updateDraft);
   });
+  // Fade the settings panel only while manipulating a slider, so the real page
+  // remains visible without moving the control underneath the pointer.
+  let previewControl = null;
+  const endPreviewGesture = () => { previewControl = null; modal.classList.remove('previewing'); };
+  modal.querySelectorAll('input[type="range"]').forEach((control) => {
+    control.addEventListener('pointerdown', () => { previewControl = control; modal.classList.add('previewing'); });
+    control.addEventListener('keydown', (event) => {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) {
+        previewControl = control;
+        modal.classList.add('previewing');
+      }
+    });
+    control.addEventListener('keyup', endPreviewGesture);
+    control.addEventListener('blur', () => { if (previewControl === control) endPreviewGesture(); });
+  });
+  document.addEventListener('pointerup', endPreviewGesture);
+  document.addEventListener('pointercancel', endPreviewGesture);
+  window.addEventListener('blur', endPreviewGesture);
+
   modal.querySelectorAll(THEME_BTNS).forEach((button) => button.addEventListener('click', () => {
     selectedTheme = button.dataset.themeMode; updateDraft();
   }));
@@ -440,6 +466,7 @@ export function initSettings() {
         shortcutRows: Math.round(numberInRange(
           incoming.shortcutRows, 1, 4, current.shortcutRows
         )),
+        shortcutTop: Math.round(numberInRange(incoming.shortcutTop, 0, 400, current.shortcutTop)),
         shortcutGap: Math.round(numberInRange(incoming.shortcutGap, 0, 80, current.shortcutGap)),
         shortcutIconSize: Math.round(numberInRange(
           incoming.shortcutIconSize,

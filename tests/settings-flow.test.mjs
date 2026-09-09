@@ -112,3 +112,32 @@ test('data actions cannot replace unsaved preferences; Escape cancels', async ()
   assert.ok(el('settings-modal').classList.contains('hidden'));
   assert.equal(data.nt_settings.shortcutGap, 16);
 });
+
+
+test('live slider previews stay local and never enter storage or backups; cancel restores the latest data', async () => {
+  await reset();
+  const state = await import('../src/state.js');
+  const otherTab = await import('../src/state.js?preview-other-tab');
+  const { createBackup } = await import('../src/storage.js');
+  input('shortcut-gap', '70'); input('shortcut-top', '180');
+  assert.equal((await state.getDisplaySettings()).shortcutGap, 70);
+  assert.equal((await state.getDisplaySettings()).shortcutTop, 180);
+  assert.equal((await otherTab.getDisplaySettings()).shortcutTop, 23);
+  assert.equal((await getSettings()).shortcutTop, 23);
+  assert.equal((await createBackup()).settings.shortcutTop, 23);
+  assert.equal(writes, 0);
+  data.nt_settings.shortcutTop = 50; // A newer saved value from another tab.
+  el('settings-cancel').click();
+  assert.equal((await state.getDisplaySettings()).shortcutTop, 50);
+  assert.equal((await state.getDisplaySettings()).shortcutGap, 16);
+  await openSettings(); input('shortcut-top', '120');
+  el('settings-done').click(); await tick();
+  assert.equal(data.nt_settings.shortcutTop, 120);
+  assert.equal((await state.getDisplaySettings()).shortcutTop, 120);
+  await openSettings(); input('shortcut-top', '240'); failWrite = true;
+  el('settings-done').click(); await tick();
+  assert.equal((await state.getDisplaySettings()).shortcutTop, 240);
+  assert.equal(data.nt_settings.shortcutTop, 120);
+  el('settings-close').click();
+  assert.equal((await state.getDisplaySettings()).shortcutTop, 120);
+});

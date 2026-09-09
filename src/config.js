@@ -53,6 +53,7 @@ export const DEFAULT_SETTINGS = {
   shortcutColumns: 12,
   shortcutRows: 2,
   shortcutGap: 16,
+  shortcutTop: 23,
   shortcutIconSize: 48,
   bookmarkWidth: 100,
   bookmarkItemWidth: 240,

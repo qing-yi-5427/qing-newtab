@@ -144,7 +144,7 @@
 <button id="settings-tab-home" type="button" role="tab" aria-controls="settings-panel-home" aria-selected="false" tabindex="-1" data-settings-tab="home">首页与书签</button>
 <button id="settings-tab-search" type="button" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1" data-settings-tab="search">搜索与对话</button>
 <button id="settings-tab-data" type="button" role="tab" aria-controls="settings-panel-data" aria-selected="false" tabindex="-1" data-settings-tab="data">数据管理</button></nav>
-      <div class="settings-panels"><section id="settings-panel-shortcuts" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-shortcuts"><h4>快捷方式</h4><p class="settings-description">调整每屏数量、图标大小和留白。图标与未排满的末行始终居中。</p>
+      <div class="settings-panels"><section id="settings-panel-shortcuts" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-shortcuts"><h4>快捷方式</h4><p class="settings-description">拖动滑块可直接预览首页效果。图标与未排满的末行始终居中。</p>
   <div class="shortcut-preview" aria-label="快捷方式布局预览"><div id="settings-shortcut-preview" aria-hidden="true"></div><span id="settings-preview-caption"></span></div>
   <div class="settings-card"><div class="pref-row">
           <span class="pref-label">快捷方式布局</span>
@@ -181,6 +181,10 @@
         </div><label class="pref-row range-row" for="shortcut-gap">
           <span class="pref-label">图标间距 <output id="shortcut-gap-value">16px</output></span>
           <input id="shortcut-gap" type="range" min="0" max="80" step="2">
+        </label><label class="pref-row range-row" for="shortcut-top">
+          <span class="pref-label">快捷方式上下位置 <output id="shortcut-top-value">23px</output></span>
+          <input id="shortcut-top" type="range" min="0" max="400" step="1" aria-describedby="shortcut-top-note">
+          <small id="shortcut-top-note" class="settings-note">数值越大，整块图标区域越靠下。</small>
         </label><label class="pref-row range-row" for="shortcut-icon-size">
           <span class="pref-label">图标大小 <output id="shortcut-icon-size-value">48</output></span>
           <input id="shortcut-icon-size" type="range" min="20" max="120" step="2">
