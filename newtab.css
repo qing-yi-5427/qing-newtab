@@ -1546,3 +1546,7 @@ body.clock-hidden #content { padding-top: clamp(20px, 3vh, 30px); }
 #settings-modal.previewing .settings-modal { opacity: .18; }
 .settings-modal { transition: opacity 120ms ease; }
 @media (prefers-reduced-motion: reduce) { .settings-modal { transition: none; } }
+
+.settings-modal .settings-header { cursor: grab; touch-action: none; user-select: none; }
+.settings-modal.is-positioned { position: fixed; margin: 0; animation: none; }
+.settings-modal.is-dragging .settings-header { cursor: grabbing; }

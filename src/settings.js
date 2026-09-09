@@ -5,6 +5,7 @@
  */
 
 import * as storage from './storage.js';
+import { initModalDrag } from './modal-drag.js';
 import * as state from './state.js';
 import { normalizeShortcutTree } from './shortcuts.js';
 import { ICON_MODES, SEARCH_ENGINES, SIZE_LIMITS, THEME_MODES } from './config.js';
@@ -97,6 +98,7 @@ function resizeWallpaper(file) {
 /** Initialise the settings dialog and all preference controls. */
 export function initSettings() {
   const modal = document.getElementById('settings-modal');
+  const resetPosition = initModalDrag(modal, modal.querySelector('.settings-modal'), modal.querySelector('.settings-header'));
   const closeBtn = document.getElementById('settings-close');
   const doneBtn = document.getElementById('settings-done');
   const wallpaperSource = document.getElementById('wallpaper-source');
@@ -273,6 +275,7 @@ export function initSettings() {
   }
 
   async function open() {
+    resetPosition();
     lastFocused = document.activeElement;
     modal.classList.remove('hidden');
     document.getElementById('page-toast')?.classList.add('hidden');
@@ -294,6 +297,7 @@ export function initSettings() {
   function close() {
     if (busy || imageLoading) return;
     modal.classList.add('hidden');
+    resetPosition();
     modal.classList.remove('previewing');
     state.previewSettings();
     baseline = null;

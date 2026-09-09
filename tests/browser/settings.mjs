@@ -45,6 +45,33 @@ try {
     return { gap: getComputedStyle(grid).columnGap, rowGap: getComputedStyle(grid).rowGap, items };
   });
   await open();
+  // Only the title bar drags the dialog; controls remain inside the viewport.
+  const panel = page.locator('#settings-modal .settings-modal');
+  const header = page.locator('#settings-modal .settings-header');
+  await panel.evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
+  const centered = await panel.boundingBox();
+  async function dragHeader(dx, dy) {
+    const box = await header.boundingBox();
+    await page.mouse.move(box.x + 100, box.y + 30);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 100 + dx, box.y + 30 + dy, { steps: 8 });
+    await page.mouse.up();
+  }
+  await dragHeader(100, 50);
+  let moved = await panel.boundingBox();
+  assert.ok(Math.abs(moved.x - centered.x - 100) < 2, JSON.stringify({ moved, centered }));
+  assert.ok(Math.abs(moved.y - centered.y - 50) < 2);
+  await page.screenshot({ animations: 'disabled', path: path.join(artifacts, 'dragged-dialog.png') });
+  await dragHeader(1800, 1200);
+  moved = await panel.boundingBox();
+  assert.ok(moved.x + moved.width <= 1440 && moved.y + moved.height <= 1000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  moved = await panel.boundingBox();
+  assert.ok(moved.x >= 0 && moved.y >= 0 && moved.x + moved.width <= 390 && moved.y + moved.height <= 844);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await header.dblclick({ position: { x: 100, y: 30 } });
+  moved = await panel.boundingBox();
+  assert.ok(Math.abs(moved.x - centered.x) < 2 && Math.abs(moved.y - centered.y) < 2);
   // Drag in a real new-tab document: preview changes must precede Save.
   const originalY = (await page.locator('.shortcut-item').first().boundingBox()).y;
   await page.locator('#shortcut-top').press('End');
